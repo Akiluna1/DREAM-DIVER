@@ -1,0 +1,229 @@
+/* ======== Canvas-Ebene über dem Video-Hintergrund ======== */
+canvas {
+  position: relative;
+  z-index: 1;
+}
+
+/* ======== Hintergrundfarbe für Body und HTML ======== */
+body, html {
+  background-color: black;
+}
+
+/* ======== Schriftarten und Schriftstile für Body, Buttons und Ergebnisanzeige ======== */
+body, button, #result, #warning p {
+  font-family: pixelify-sans, sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* ======== Globale Box-Sizing und Margin/Padding Reset ======== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ======== Volle Höhe und Scroll-Overflow-Verhinderung ======== */
+body, html {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ======== Vollbild-Canvas für das Spiel ======== */
+#gameCanvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* ======== Haupt-Game-Container mit z-Index und Flexbox-Centering ======== */
+#game {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+
+/* ======== Ergebnisanzeige am unteren Bildschirmrand ======== */
+#result {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-family: pixelify-sans, sans-serif;
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #333;
+  z-index: 10;
+  min-width: 120px;
+  text-align: center;
+}
+
+/* ======== Spieltitel auf dem Startbildschirm ======== */
+#gameTitle {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: argent-pixel-cf, sans-serif;
+  font-size: 7em;
+  font-weight: 400;
+  font-style: normal;
+  color: #fff;
+  z-index: 20;
+  text-shadow: 0 0 10px rgba(255,255,255,0.4), 0 0 10px rgba(255,255,255,0.4);
+  pointer-events: none; /* Verhindert Interaktionen mit dem Titel */
+}
+
+/* ======== Start-Button mit Animationen und zentrierter Position ======== */
+#startButton {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: pixelify-sans, sans-serif;
+  font-weight: 300;
+  font-style: normal;
+  color: #fff;
+  font-size: 2.5em;
+  z-index: 20;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  cursor: pointer;
+  /* Pulse and glow animations in sync */
+  animation: pulseButton 2s ease-in-out infinite, glowButton 2s ease-in-out infinite;
+}
+
+/* ======== Utility-Klasse zum Ausblenden von Elementen ======== */
+.hidden { display: none !important; }
+
+/* ======== Startbildschirm-Layout und Styling ======== */
+#startScreen {
+  position: fixed;
+  top: 20%;
+  left: 0; right: 0;
+  text-align: center;
+  z-index: 100;
+}
+#startScreen h1 {
+  font-size: 4em;
+  margin-bottom: 0.5em;
+  color: #333;
+}
+#startScreen button {
+  font-size: 1.5em;
+  padding: 0.5em 1em;
+}
+
+/* ======== Warn-Overlay für Hinweise oder Meldungen ======== */
+#warning {
+  position: fixed;
+  top: 50%;
+  left: 0; right: 0;
+  text-align: center;
+  z-index: 90;
+  pointer-events: none; /* lässt Klicks durch */
+}
+#warning p {
+  display: inline-block;
+  padding: 1em 2em;
+  font-size: 1.2em;
+  color: #222;
+  border-radius: 8px;
+  animation: pulse 2s ease-out forwards; /* sanftes Ein- und Ausblenden */
+}
+
+/* ======== Pulsierende Animation für Warnmeldungen ======== */
+@keyframes pulse {
+  0%   { opacity: 0; transform: scale(0.8); }
+  20%  { opacity: 1; transform: scale(1); }
+  80%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.8); }
+}
+
+/* ======== Leuchtende Animation für Start-Button-Text ======== */
+@keyframes glowButton {
+  0%, 100% {
+    text-shadow: 0 0 5px #fff, 0 0 10px #fff;
+  }
+  50% {
+    text-shadow: 0 0 20px #fff, 0 0 30px #fff;
+  }
+}
+
+/* ======== Pulsierende Skalierung für Start-Button ======== */
+@keyframes pulseButton {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+
+/* ======== Grund-Setup: Container füllt den Viewport mit Fixierung ======== */
+/* (removed duplicate #game definition) */
+
+/* ======== Video-Element Optimierungen für Performance und Darstellung ======== */
+video {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* ======== Hintergrundvideo mit negativer Z-Index Ebene ======== */
+#backgroundVideo {
+  z-index: -1;
+}
+
+/* ======== Sanfter Übergang für Hintergrundvideo-Opacity ======== */
+#backgroundVideo {
+  transition: opacity 1s ease;
+}
+
+/* ======== Verstecken des Hintergrundvideos durch Opacity und Pointer-Events ======== */
+#backgroundVideo.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ======== Hintergrundbild für Dodge-Minispiel ======== */
+#game.bg-dodge {
+  background-image: url('dodge_background.png');
+}
+
+/* ======== Schriftgestaltung für Endscreen Überschriften ======== */
+#endscreen h2, #endScreen h2 {
+  font-family: 'argent-pixel-cf', sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 2em;
+  color: #fff;
+  text-align: center;
+  margin-top: 50px;
+}
+
+/* ======== Schriftgestaltung für Endscreen Absätze ======== */
+#endscreen p, #endScreen p {
+  font-family: 'pixelify-sans', sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 1.5em;
+  color: #fff;
+  text-align: center;
+  margin-top: 50px;
+}
