@@ -1,3 +1,6 @@
+// === Framerate-unabhängige Zeitsteuerung für Piano-Minigame ===
+let lastTimestamp = 0;
+
 
 /**
  * Hauptdatei für das Traumspiel.
@@ -352,20 +355,27 @@ function evaluateResult() {
         // Zu viele schlechte Wörter: Dodge-Minispiel (Albtraum)
         miniGameResult1 = false;
         phase1Collected = collected.map(w => w.text);
-        fadeToMiniGame("Oh oh... Höhrst du es bröckeln?", startDodgeMiniGame, '#001024');
+        // Ablauf wie vor der "showMessage"-Einführung: direkt fadeToMiniGame mit Texten
+        fadeToMiniGame("Gebe dein bestes um nicht aufzuwachen...", () => {
+            startMiniGame("dodge");
+        });
       } else {
         // Wenig "bad": Piano-Minispiel (guter Traum)
         miniGameResult1 = true;
         phase1Collected = collected.map(w => w.text);
-        fadeToMiniGame("Es riecht nach Meer...", startGoodDreamMiniGame, '#45B7B7');
+        // Ablauf wie vor der "showMessage"-Einführung: direkt fadeToMiniGame mit Texten
+        fadeToMiniGame("Gebe dein bestes um nicht aufzuwachen...", () => {
+          startMiniGame("catch");
+        });
       }
     } else if (miniGameResult2 === null) {
       // Nach der zweiten Wortauswahl: anderes Minigame
       isSecondMinigame = true;
+      // Ablauf wie vor der "showMessage"-Einführung: direkt fadeToMiniGame
       if (miniGameResult1) {
-        fadeToMiniGame("Es wird gefährlich...", startDodgeMiniGame, '#001024');
+        fadeToMiniGame("Es wird gefärlich… Vorsicht...", startDodgeMiniGame, '#001024');
       } else {
-        fadeToMiniGame("Es riecht nach Meer...", startGoodDreamMiniGame, '#45B7B7');
+        fadeToMiniGame("Die Wellen werden dich beruhigen...", startGoodDreamMiniGame, '#45B7B7');
       }
     }
   }
@@ -375,6 +385,15 @@ function evaluateResult() {
     setTimeout(() => {
       startGame();
     }, 1500);
+  }
+}
+
+// Neue Hilfsfunktion, um das passende Minigame nach den Messages zu starten
+function startMiniGame(type) {
+  if (type === "dodge") {
+    fadeToMiniGame("Hörst du das Bröckeln...", startDodgeMiniGame, '#001024');
+  } else if (type === "catch") {
+    fadeToMiniGame("Es riecht nach Meer...", startGoodDreamMiniGame, '#45B7B7');
   }
 }
 
@@ -425,7 +444,7 @@ startButton.addEventListener("click", () => {
   }
 
   // Intro-Overlay mit Anweisung
-  fadeToMiniGame("✨ Tauche ein in deinen Traum.<br><br>Wähle drei Worte, die dich leiten _", () => {
+  fadeToMiniGame("Tauche ein in deinen Traum.<br><br>Wähle drei Worte, die dich leiten _", () => {
     canvas.style.display = 'block';
     resultDiv.style.display = 'block';
     container.classList.remove('bg-main','bg-piano','bg-dodge');
@@ -440,6 +459,7 @@ window.addEventListener("keydown", (e) => {
     startButton.click();
   }
 });
+
 
 // --- BAD DREAM MINIGAME ---
 /**
@@ -594,11 +614,11 @@ function startDodgeMiniGame() {
             fadeOutAudio(dodgeGameLoopAudio);
             if (!isSecondMinigame) {
                 miniGameResult1 = true;
-                fadeToMiniGame("Yippie! Du hast überlebt 🎉", startGame);
+                fadeToMiniGame("Puh geschafft, das war gefährlich…", startGame);
             } else {
                 miniGameResult2 = true;
                 isSecondMinigame = false;
-                fadeToMiniGame("Yippie! Du hast überlebt 🎉", showEndScreenIfDone);
+                fadeToMiniGame("Puh geschafft, das war gefährlich…", showEndScreenIfDone);
             }
             container.classList.remove('bg-main','bg-piano','bg-dodge');
             container.classList.add('bg-main');
@@ -614,11 +634,11 @@ function startDodgeMiniGame() {
                 gameOverSound.play().catch(e => console.log("GAMEOVER error", e));
                 if (!isSecondMinigame) {
                     miniGameResult1 = false;
-                    fadeToMiniGame("Oh oh... du wurdest getroffen!", startGame);
+                    fadeToMiniGame("Hätte besser laufen können…", startGame);
                 } else {
                     miniGameResult2 = false;
                     isSecondMinigame = false;
-                    fadeToMiniGame("Oh oh... du wurdest getroffen!", showEndScreenIfDone);
+                    fadeToMiniGame("Hätte besser laufen können…", showEndScreenIfDone);
                 }
             }, 50);
             fadeOutAudio(dodgeGameLoopAudio);
@@ -724,12 +744,14 @@ function startGoodDreamMiniGame() {
     // Timer und Trefferanzeige schon zu Beginn sichtbar machen
     
     const noteLanes = 4;
+    // Ziel-Framerate für Timing-Korrektur
+    const targetFPS = 60;
     // Center lanes in a 60% width area
     const laneAreaWidth = canvas.width * 0.6;
     const laneOffsetX = (canvas.width - laneAreaWidth) / 2;
     const noteWidth = laneAreaWidth / noteLanes;
     const noteHeight = 40;
-    const noteSpeed = 2; // increased fall speed
+    const noteSpeed = 300; // 300 Pixel pro Sekunde
     const targetLineY = 20;
     let notes = [];
     // Partikel für Bubble-Pop
@@ -754,29 +776,55 @@ function startGoodDreamMiniGame() {
     function onKeyUp(e)  { if(keys.hasOwnProperty(e.key)) keys[e.key]=false; }
 
     /**
-     * Hauptschleife für das Piano-Minispiel.
+     * Zeitbasierte Spiellogik für das Piano-Minigame.
+     * @param {number} deltaTime - Zeit seit letztem Frame in Sekunden
+     */
+    function updateGame(deltaTime) {
+        // Partikel-Update
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy; 
+            p.alpha -= 0.03;
+            if (p.alpha <= 0) {
+                particles.splice(i, 1);
+            }
+        }
+        // Noten bewegen (framerate-unabhängig, angepasst an targetFPS)
+        for (let note of notes) {
+            note.y -= noteSpeed * (deltaTime / (1000 / targetFPS));
+        }
+    }
+
+    /**
+     * Hauptschleife für das Piano-Minispiel, framerate-unabhängig.
      * - Zuerst Warmup-Phase mit Hinweis.
      * - Dann: Noten fallen herab, Spieler muss sie passend zur Linie treffen.
      * - Fehlerlimit oder Zeitablauf beendet die Runde.
+     *
+     * === HIER wird die Notenverzögerung geregelt: ===
+     * Während der Warmup-Phase (if (warmup)) werden KEINE Noten erzeugt, außer ein allererster spawnNote() kurz vor Ende (bei warmupTime === 1).
+     * Erst nach warmup == false werden die Noten regelmäßig mit spawnDelay erzeugt:
+     *   if (secondsLeft > 7 && spawnDelay <= 0) { spawnNote(); spawnDelay = fps; }
+     * Das heißt: Die eigentliche Notenerzeugung ist durch das warmup-Flag und warmupTime verzögert.
      */
-    function gameTick() {
+    function gameTick(timestamp) {
+        const deltaTime = (timestamp - lastTimestamp) / 1000;
+        lastTimestamp = timestamp;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Partikel-Update & Render
-        particles.forEach((p, idx) => {
-          p.x += p.vx;
-          p.y += p.vy;
-          p.alpha -= 0.03;
-          if (p.alpha > 0) {
-            ctx.save();
-            ctx.globalAlpha = p.alpha;
-            ctx.fillStyle = "#ffffff";
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-          }
+        // Partikel-Render
+        particles.forEach((p) => {
+            if (p.alpha > 0) {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
         });
-       
+
         // Zeichnet Noten-Spuren und Ziel-Linie
         for (let i = 0; i < noteLanes; i++) {
             const key = noteToKey[i];
@@ -813,39 +861,34 @@ function startGoodDreamMiniGame() {
             ctx.fillText("Beweg den Joystick in verschiedene Richtungen", canvas.width / 2, canvas.height / 2 + 10);
             ctx.globalAlpha = 1;
             warmupTime--;
-            
-            
-            
+            // HIER: Während warmup==true werden KEINE Noten erzeugt, außer:
             if (warmupTime <= 0) {
                 warmup = false;
-                
             }
-           if (warmupTime === 1) {
+            if (warmupTime === 1) {
                 spawnNote(); // Starte das Noten-Spawning 1 Sekunde vor Spielstart
             }
-            
-            
         }
+        // Zeitberechnung
         let secondsLeft = Math.ceil(roundTime - (frameCount / fps));
         ctx.fillStyle = "#fff";
         ctx.font = "35px pixelify-sans";
         ctx.fillText(secondsLeft + "Sek", canvas.width - 140, 42);
 
         // Noten bewegen und zeichnen (herabfallende Kreise mit Glow)
-        notes.forEach(note => note.y -= noteSpeed);
+        updateGame(deltaTime);
         notes.forEach(note => {
-          ctx.save();
-          note.y -= noteSpeed;
-          ctx.shadowColor = "#ffffff";
-          ctx.shadowBlur = 15;
-          ctx.fillStyle = "#ffffff";
-          const x = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
-          const y = note.y + noteHeight / 2;
-          const radius = noteHeight * 0.65;
-          ctx.beginPath();
-          ctx.arc(x, y, radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
+            ctx.save();
+            ctx.shadowColor = "#ffffff";
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = "#ffffff";
+            const x = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
+            const y = note.y + noteHeight / 2;
+            const radius = noteHeight * 0.65;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
         });
 
         // Prüft, ob Noten getroffen oder verpasst wurden
@@ -854,13 +897,13 @@ function startGoodDreamMiniGame() {
             if (note.y < targetLineY + noteHeight && note.y > targetLineY - 10) {
                 let key = noteToKey[note.lane];
                 if (keys[key]) {
-                  const popX = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
-const popY = note.y + noteHeight / 2;
-spawnParticles(popX, popY);
+                    const popX = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
+                    const popY = note.y + noteHeight / 2;
+                    spawnParticles(popX, popY);
                     notes.splice(i, 1);
                     score++;
                     const hitSound = noteCollectSound.cloneNode();
-hitSound.play().catch(e => console.log("Note hit sound error:", e));
+                    hitSound.play().catch(e => console.log("Note hit sound error:", e));
                     feedback = "Good!";
                     feedbackTimer = 32;
                     feedbackColor = "#ffffff";
@@ -868,38 +911,48 @@ hitSound.play().catch(e => console.log("Note hit sound error:", e));
                 }
             }
             if (note.y < targetLineY - 16) {
-              const popX = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
-const popY = note.y + noteHeight / 2;
-spawnParticles(popX, popY);
+                const popX = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
+                const popY = note.y + noteHeight / 2;
+                spawnParticles(popX, popY);
                 notes.splice(i, 1);
                 misses++;
                 const missSound = noteMissedSound.cloneNode();
-  missSound.play().catch(e => console.log("Note miss sound error:", e));
+                missSound.play().catch(e => console.log("Note miss sound error:", e));
                 feedback = "Nicht getroffen!";
                 feedbackTimer = 40;
                 feedbackColor = "#e44";
             }
         }
 
-        spawnDelay--;
-        // Noten werden regelmäßig erzeugt, solange Zeit bleibt
-        if (secondsLeft > 7 && spawnDelay <= 0) {
-            // 🎵 Hier werden die Noten für das Piano-Minigame erzeugt
-            spawnNote();
-            spawnDelay = fps;
+        // Noten werden regelmäßig erzeugt, solange Zeit bleibt, aber NUR wenn warmup==false:
+        if (!warmup) {
+            spawnDelay--;
+            if (secondsLeft > 3 && spawnDelay <= 0) {
+                // Check if last note is too close in same lane
+                const lastNote = notes[notes.length - 1];
+                const newLane = Math.floor(Math.random() * noteLanes);
+                if (
+                  !lastNote ||
+                  lastNote.lane !== newLane ||
+                  lastNote.y < canvas.height - 100
+                ) {
+                  notes.push({ lane: newLane, y: canvas.height });
+                  spawnDelay = fps;
+                }
+            }
         }
         // Feedback (Good!/Nicht getroffen!) anzeigen
         if (feedback && feedbackTimer > 0) {
             ctx.font = "bold 32px pixelify-sans";
             ctx.fillStyle = feedbackColor;
-            ctx.fillText(feedback, canvas.width/2 , 80);
+            ctx.fillText(feedback, canvas.width / 2, 80);
             feedbackTimer--;
             if (feedbackTimer === 0) feedback = "";
         }
-        
+
         ctx.font = "22px pixelify-sans";
         ctx.fillStyle = "#ffffff";
-        ctx.fillText("Fehler: " + misses + " / 5", canvas.width/9, canvas.height - 44);
+        ctx.fillText("Fehler: " + misses + " / 5", canvas.width / 9, canvas.height - 44);
         frameCount++;
         // --- SPIEL BEENDET: Zu viele Fehler ---
         if (misses >= 5) {
@@ -907,11 +960,11 @@ spawnParticles(popX, popY);
             if (!isSecondMinigame) {
                 miniGameResult1 = false;
                 isSecondMinigame = true;
-                fadeToMiniGame("Oh oh... zu viele Fehler", startGame, '#45B7B7');
+                fadeToMiniGame("Dein Schlaf wird schlechter...", startGame, '#45B7B7');
             } else {
                 miniGameResult2 = false;
                 isSecondMinigame = false;
-                fadeToMiniGame("Oh oh... zu viele Fehler", showEndScreenIfDone, '#45B7B7');
+                fadeToMiniGame("Dein Schlaf wird schlechter...", showEndScreenIfDone, '#45B7B7');
             }
             const gameOverSound = new Audio("GAMEOVER.mp3");
             gameOverSound.play().catch(e => console.log("GAMEOVER error", e));
@@ -953,8 +1006,15 @@ spawnParticles(popX, popY);
      */
     function spawnNote() {
         // 🎵 Hier werden die Noten für das Piano-Minigame erzeugt
-        let lane = Math.floor(Math.random() * noteLanes);
-        notes.push({ lane: lane, y: canvas.height });
+        const lastNote = notes[notes.length - 1];
+        const newLane = Math.floor(Math.random() * noteLanes);
+        if (
+          !lastNote ||
+          lastNote.lane !== newLane ||
+          lastNote.y < canvas.height - 100
+        ) {
+          notes.push({ lane: newLane, y: canvas.height });
+        }
     }
     /**
      * Erzeugt ein paar kleine Partikel an (x,y) für Pop-Effekt
@@ -974,6 +1034,7 @@ spawnParticles(popX, popY);
       }
     }
     resultDiv.style.display = "none";
+    lastTimestamp = performance.now();
     requestAnimationFrame(gameTick);
 }
 
@@ -1018,13 +1079,13 @@ function showEndScreenIfDone() {
     // Ergebnistext je nach Erfolg in beiden Minigames
     let message;
     if (miniGameResult1 === true && miniGameResult2 === true) {
-      message = `<h2>🌌 Tief entspannt</h2><p>Du hast beide Traumphasen gemeistert.</p>`;
+      message = `<h2>Erholsamer Schlaf!</h2><p>Du hast 2 von 2 Träumen erfolgreich gemeistert</p>`;
     } else if (miniGameResult1 === false && miniGameResult2 === false) {
       // beide verloren
-      message = `<h2>🌩️ Albtraum!</h2><p>Du hast beide Minispiele nicht bestanden.</p>`;
+      message = `<h2>Was ein Albtraum!</h2><p>Du hast 0 von 2 Träumen erfolgreich gemeistert</p>`;
     } else {
       // eins verloren
-      message = `<h2>💤 Unruhig geschlafen...</h2><p>Du hast eines der Minispiele nicht bestanden.</p>`;
+      message = `<h2>Eine Unruhige Nacht…</h2><p>Du hast 1 von 2 Träumen erfolgreich gemeistert</p>`;
     }
 
     endscreenDiv.innerHTML = message + '<br><br><button id="restartButton" onclick="location.reload()" style="font-size:1em;padding:0.4em 1.2em">Nochmal spielen</button>';
@@ -1055,24 +1116,23 @@ document.addEventListener("keydown", function (e) {
  * @param {string} color - Hintergrundfarbe
  */
 function fadeToMiniGame(text, callback, color = 'black') {
-  // Piano-Video ausblenden, falls noch sichtbar (z.B. bei direktem Übergang)
-  
+  fadeToMiniGame_inner(text, callback, color);
+}
+
+// Hilfsfunktion, damit wir fadeToMiniGame rekursiv aufrufen können
+function fadeToMiniGame_inner(text, callback, color = 'black') {
   const overlay = document.createElement('div');
-  // Overlay mit zentriertem Text
   overlay.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:${color};display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;transition:opacity 2.5s ease;`;
   overlay.innerHTML += `<div style="color:white;font-family:'pixelify-sans',sans-serif;font-size:3em;text-align:center;position:relative;z-index:2;opacity:1;transition:opacity 2.5s ease;">${text}</div>`;
 
   // --- Sound für Dodge-Minigame direkt zu Beginn abspielen ---
-  // Prüfe, ob das Callback das Dodge-Minigame ist, dann spiele dodgeStartSound sofort ab
   if (callback === startDodgeMiniGame) {
-    // dodgeStartSound global initialisieren, falls noch nicht
     if (!dodgeStartSound) {
       dodgeStartSound = new Audio("DODGESTART.mp3");
     }
     dodgeStartSound.currentTime = 0;
     dodgeStartSound.play().catch(e => console.log("DODGESTART fade error", e));
   } else {
-    // Sonst normaler Startsound für andere Minigames
     gameStartSound.currentTime = 0;
     gameStartSound.play().catch(e => console.log("GAMESTART fade error:", e));
   }
@@ -1080,27 +1140,24 @@ function fadeToMiniGame(text, callback, color = 'black') {
   document.body.appendChild(overlay);
 
   setTimeout(() => {
-    fadeOutAudio(wordMusic);  // Musik schon beim Fade ausblenden
+    fadeOutAudio(wordMusic);
     overlay.style.opacity = '1';
     const textElement = overlay.querySelector("div");
     textElement.style.opacity = '1';
-    // PianoLoop2 vorspielen, falls gleich Piano-Minispiel kommt
     if (callback === startGoodDreamMiniGame) {
       pianoLoop2.currentTime = 0;
       pianoLoop2.volume = 1;
       pianoLoop2.play().catch(e => console.log("Pre-fade PIANOGAME1 error", e));
     }
-    // Textwechsel und Piano-Video ausblenden exakt in der Mitte der Überblendung
     setTimeout(() => {
       textElement.innerHTML = text;
-      hidePianoBackgroundVideo(); // Jetzt genau in der Mitte der Überblendung
+      hidePianoBackgroundVideo();
     }, 500);
     setTimeout(() => {
       textElement.style.opacity = '0';
     }, 2000);
     setTimeout(() => {
       callback();
-      // Nur nach der zweiten Wortauswahl: Musik wieder einblenden
       if (callback === startGame) {
         fadeInAudio(wordMusic);
       }
@@ -1111,6 +1168,7 @@ function fadeToMiniGame(text, callback, color = 'black') {
     }, 4000);
   }, 50);
 }
+
 
 /**
  * Blendet ein Audioobjekt langsam aus (Volume auf 0, dann Pause)
