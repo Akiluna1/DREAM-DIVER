@@ -391,7 +391,7 @@ function evaluateResult() {
 // Neue Hilfsfunktion, um das passende Minigame nach den Messages zu starten
 function startMiniGame(type) {
   if (type === "dodge") {
-    fadeToMiniGame("Hörst du das Bröckeln...", startDodgeMiniGame, '#001024');
+    fadeToMiniGame("Vorsicht... Hörst du das Bröckeln...", startDodgeMiniGame, '#001024');
   } else if (type === "catch") {
     fadeToMiniGame("Es riecht nach Meer...", startGoodDreamMiniGame, '#45B7B7');
   }
@@ -614,7 +614,13 @@ function startDodgeMiniGame() {
             fadeOutAudio(dodgeGameLoopAudio);
             if (!isSecondMinigame) {
                 miniGameResult1 = true;
-                fadeToMiniGame("Puh geschafft, das war gefährlich…", startGame);
+                fadeToMiniGame("Puh geschafft, das war gefährlich…", () => {
+                fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {  
+                startGame(); // Startet die zweite Runde mit Phase 1 Wörtern
+                    });
+                });
+
+                
             } else {
                 miniGameResult2 = true;
                 isSecondMinigame = false;
@@ -634,7 +640,12 @@ function startDodgeMiniGame() {
                 gameOverSound.play().catch(e => console.log("GAMEOVER error", e));
                 if (!isSecondMinigame) {
                     miniGameResult1 = false;
-                    fadeToMiniGame("Hätte besser laufen können…", startGame);
+                  
+                  fadeToMiniGame("Hätte besser laufen können…",() => {
+                  fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {  
+                  startGame(); 
+                    });
+                    });
                 } else {
                     miniGameResult2 = false;
                     isSecondMinigame = false;
@@ -695,21 +706,8 @@ function startDodgeMiniGame() {
     return; // Beende startDodgeMiniGame() frühzeitig, um Warmup laufen zu lassen
 }
 
-// (Nicht genutzt, aber für Rhythmus-Spiele: Noten im Takt erzeugen)
-function scheduleNotesToBeat() {
-  const beatInterval = 1000; // alle Sekunde eine Note (120 BPM)
-  const totalBeats = 60;
-  let beatCount = 0;
-  const beatTimer = setInterval(() => {
-    if (beatCount >= totalBeats) {
-      clearInterval(beatTimer);
-      return;
-    }
-    // 🎵 Hier werden die Noten für das Piano-Minigame erzeugt
-    spawnNote();
-    beatCount++;
-  }, beatInterval);
-}
+
+
 
 // --- GOOD DREAM MINI GAME ---
 /**
@@ -978,11 +976,20 @@ function startGoodDreamMiniGame() {
             if (!isSecondMinigame) {
                 miniGameResult1 = true;
                 isSecondMinigame = true;
-                fadeToMiniGame("Sehr gut... Deine Seele ist entspannt…", startGame, '#45B7B7');
+                fadeToMiniGame("Sehr gut... Deine Seele ist entspannter…", () => {
+                  // Nach dem Feedback-Fade: Zeige exklusiven Fade für den Übergang zur zweiten Wortwahl
+                  if (miniGameResult1 !== null && miniGameResult2 === null) {
+                    fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {
+                      startGame();
+                    });
+                  } else {
+                    startGame();
+                  }
+                }, '#45B7B7');
             } else {
                 miniGameResult2 = true;
                 isSecondMinigame = false;
-                fadeToMiniGame("Sehr gut... Deine Seele ist entspannt…", showEndScreenIfDone, '#45B7B7');
+                fadeToMiniGame("Sehr gut... Deine Seele ist entspannter…", showEndScreenIfDone, '#45B7B7');
             }
             const gameWinSound = new Audio("GAMEWIN.mp3");
             gameWinSound.play().catch(e => console.log("GAMEWIN error", e));
@@ -1125,6 +1132,7 @@ function fadeToMiniGame_inner(text, callback, color = 'black') {
   overlay.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:${color};display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;transition:opacity 2.5s ease;`;
   overlay.innerHTML += `<div style="color:white;font-family:'pixelify-sans',sans-serif;font-size:3em;text-align:center;position:relative;z-index:2;opacity:1;transition:opacity 2.5s ease;">${text}</div>`;
 
+  
   // --- Sound für Dodge-Minigame direkt zu Beginn abspielen ---
   if (callback === startDodgeMiniGame) {
     if (!dodgeStartSound) {
@@ -1204,15 +1212,7 @@ function fadeInAudio(audio) {
 }
 
 
-// Versucht, die Startmusik automatisch abzuspielen, sobald die Seite geladen ist
-window.addEventListener('DOMContentLoaded', () => {
-  startMusic.currentTime = 0;
-  startMusic.play().catch(e => console.log("Autoplay blocked:", e));
-  // Lade dodgeStartSound vor, damit sofortige Wiedergabe im Fade möglich ist
-  if (!dodgeStartSound) {
-    dodgeStartSound = new Audio("DODGESTART.mp3");
-  }
-});
+
 /**
  * Spielt ein Soundobjekt sofort ab (ohne Delay). Kann mit beliebigem Audio-Objekt verwendet werden.
  * @param {Audio} audioObj
@@ -1269,14 +1269,4 @@ function stopAllBackgroundMusic() {
   });
 }
 // === Hintergrundvideo-Steuerung ===
-function pauseBackgroundVideo() {
-  if (backgroundVideo && !backgroundVideo.paused) {
-    backgroundVideo.pause();
-  }
-}
 
-function resumeBackgroundVideo() {
-  if (backgroundVideo && backgroundVideo.paused) {
-    backgroundVideo.play().catch(e => console.log("Autoplay-Fehler:", e));
-  }
-} 
