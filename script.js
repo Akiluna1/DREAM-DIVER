@@ -26,16 +26,27 @@ function showPianoBackgroundVideo() {
 
 function hidePianoBackgroundVideo() {
   if (pianoBackgroundVideo) {
-    pianoBackgroundVideo.pause();
     pianoBackgroundVideo.style.display = "none";
   }
 }
+// === Hintergrundvideo Sichtbarkeit steuern ===
+function showBackgroundVideo() {
+  if (backgroundVideo) {
+    backgroundVideo.style.display = "block";
+    }
+}
+function hideBackgroundVideo() {
+  if (backgroundVideo){
+     backgroundVideo.style.display = "none";
+}
+}
 window.addEventListener("DOMContentLoaded", () => {
+  console.log("DOMContentLoaded erreicht");
   if (backgroundVideo) {
     backgroundVideo.muted = true;
     backgroundVideo.play().catch(e => console.warn("Autoplay blockiert:", e));
-    fadeInAudio(startMusic); // Startmusik ausblenden
-fadeOutAudio(endMusic);   // Endmusik ausblenden
+    // fadeInAudio(startMusic); // Startmusik ausblenden (entfernt)
+    fadeOutAudio(endMusic);   // Endmusik ausblenden
   }
 });
 
@@ -54,13 +65,7 @@ window.addEventListener("resize", resizeCanvas); // Bei Fensteränderung anpasse
 
 // Hintergrund-Video DOM-Element wurde bereits oben geladen
 
-// === Hintergrundvideo Sichtbarkeit steuern ===
-function showBackgroundVideo() {
-  if (backgroundVideo) backgroundVideo.style.display = "block";
-}
-function hideBackgroundVideo() {
-  if (backgroundVideo) backgroundVideo.style.display = "none";
-}
+
 
 // Buttons und Anzeigen
 const startButton = document.getElementById("startButton");
@@ -279,7 +284,7 @@ function drawWords() {
 
     // Wenn eingesammelt, langsam ausblenden
     if (collected.includes(word)) {
-      word.alpha -= 0.02;
+      word.alpha -= 0.09;
       if (word.alpha <= 0) {
         words.splice(i, 1);
       }
@@ -454,10 +459,11 @@ function onKeyUp(e) { keys[e.key] = false; }
 // === STARTBUTTON-Logik ===
 // Beim Klick auf "Start" wird das Spiel (Wortauswahl) gestartet, Musik eingeblendet, Intro-Overlay gezeigt
 startButton.addEventListener("click", () => {
+  startMusic.volume = 1;
   startMusic.currentTime = 0;
-  startMusic.play().catch(e => console.log("STARTMUSIC play error:", e));
-  fadeInAudio(startMusic);
+  startMusic.play().catch(e => console.log("StartMusic Play Error:", e));
 
+  // fadeInAudio(startMusic); // Entfernt, da Musik jetzt direkt gestartet wird
   fadeOutAudio(startMusic);
   fadeOutAudio(endMusic);
   fadeOutAudio(wordMusic);
@@ -742,8 +748,8 @@ function startDodgeMiniGame() {
  */
 function startGoodDreamMiniGame() {
     // Hintergrundvideo ausblenden für Minigame, Piano-Video zeigen
-    hideBackgroundVideo();
     showPianoBackgroundVideo();
+    hideBackgroundVideo();
     fadeOutAudio(wordMusic);
     // --- Play piano intro and loop ---
     pianoStartSound.currentTime = 0;
