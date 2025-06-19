@@ -198,12 +198,22 @@ function startGame() {
   const available = miniGameResult1 === null
     ? wordPool
     : wordPool.filter(w => !phase1Collected.includes(w.text));
-  words = available.map(word => ({
-    ...word,
-    x: Math.random() * (canvas.width - 160) + 80,
-    y: Math.random() * (canvas.height - 100) + 50,
-    alpha: 1
-  }));
+  // Prepare to measure word width with the correct font
+  words = available.map(word => {
+    // fontSize between 28 and 42 (randomized, adjust as needed)
+    const fontSize = Math.floor(Math.random() * 20) + 30;
+    ctx.font = `${fontSize}px pixelify-sans`;
+    const width = ctx.measureText(word.text).width * (fontSize / 35); // scale factor
+    return {
+      ...word,
+      x: Math.random() * (canvas.width - 160) + 80,
+      y: Math.random() * (canvas.height - 100) + 50,
+      alpha: 1,
+      fontSize: fontSize,
+      width: width,
+      height: fontSize
+    };
+  });
 
   // Listener für Steuerung hinzufügen (falls notwendig)
   window.addEventListener("keydown", onKeyDown);
@@ -250,18 +260,26 @@ function drawPlayer() {
  * Zeichnet die Wörter auf das Spielfeld (fade-out beim Einsammeln)
  */
 function drawWords() {
-  ctx.font = "35px 'pixelify-sans'";
   ctx.textBaseline = "middle";
+  const now = Date.now(); // aktuelle Zeit für den Blink-Effekt
+
   words.forEach((word, i) => {
     ctx.save();
-    ctx.globalAlpha = word.alpha;
+
+    // Blinken mit Sinuswelle zwischen 0.4 und 1.0
+    const blink = 0.7 + 0.3 * Math.sin(now / 400 + i);
+    ctx.globalAlpha = word.alpha * blink;
+
+    // Dynamische Fontgröße pro Wort, falls vorhanden
+    const fontSize = word.fontSize ? word.fontSize : 35;
+    ctx.font = `${fontSize}px pixelify-sans`;
     ctx.fillStyle = "#fff";
     ctx.fillText(word.text, word.x, word.y);
     ctx.restore();
 
-    // Blende Wort aus, wenn eingesammelt (im Array collected)
-    if (collected.includes(word) && word.alpha < 1) {
-      word.alpha -= 0.08;
+    // Wenn eingesammelt, langsam ausblenden
+    if (collected.includes(word)) {
+      word.alpha -= 0.02;
       if (word.alpha <= 0) {
         words.splice(i, 1);
       }
@@ -292,15 +310,21 @@ function checkCollisions() {
 
   for (let i = words.length - 1; i >= 0; i--) {
     const word = words[i];
-    ctx.font = "20px 'pixelify-sans'";
-    const textWidth = ctx.measureText(word.text).width;
-    const wordCenterX = word.x + textWidth / 2;
-    const wordCenterY = word.y;
-    const dx = player.x - wordCenterX;
-    const dy = player.y - wordCenterY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance < player.size + 35 && word.alpha === 1 && !collected.includes(word)) {
+    // Use dynamic width/height for collision
+    const wordWidth = word.width || 100;
+    const wordHeight = word.height || 40;
+    // Center of word is at word.x, word.y
+    const px = player.x;
+    const py = player.y;
+    // Rectangle collision: player inside word rect
+    if (
+      px > word.x - wordWidth / 2 &&
+      px < word.x + wordWidth / 2 &&
+      py > word.y - wordHeight / 2 &&
+      py < word.y + wordHeight / 2 &&
+      word.alpha === 1 &&
+      !collected.includes(word)
+    ) {
       // Sound abspielen (Klon für paralleles Abspielen)
       const collectSound = wordCollectSound.cloneNode();
       collectSound.play().catch(e => console.log("Sound play error:", e));
@@ -319,26 +343,22 @@ function checkCollisions() {
 
 
 /**
- * Aktualisiert die Anzeige der bereits gesammelten Wörter und blendet Hinweise ein
+ * Zeichnet die eingesammelten Wörter am unteren Rand.
+ * Verwendet Platzhalter (_____) für noch nicht gesammelte Wörter.
  */
-function updateResultDisplay() {
-  if (messageActive) return;
-  if (collected.length === 0) return; // Initialhinweis nicht überschreiben
-  const remaining = 3 - collected.length;
-  if (remaining > 0) {
-    instructionDiv.innerHTML = `Noch ${remaining} ${remaining === 1 ? "Wort" : "Wörter"} wählen…`;
-  }
-  const collectedText = collected.map(w => w.text).join(", ");
-  resultDiv.innerHTML = `<div style="font-size:40px; text-shadow: 0 0 8px #ffffff;">${collectedText}</div>`;
-  // Stil für Anzeige
-  resultDiv.style.fontFamily = "'pixelify-sans', sans-serif";
-  resultDiv.style.color = "#ffffff";
+function drawCollectedWords() {
+  ctx.font = "45px pixelify-sans";
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
 
-  // Pulsierende Hintergrundfarbe als Feedback
-  if (collected.length > 0) {
-    const intensity = Math.min(50, collected.length * 10);
-    document.body.style.backgroundColor = `rgb(${220 - intensity}, ${230 - intensity}, ${250 - intensity})`;
+  const placeholders = 3;
+  const displayWords = [];
+  for (let i = 0; i < placeholders; i++) {
+    displayWords.push(collected[i] ? collected[i].text : "_______");
   }
+  const displayText = displayWords.join("     ");
+  ctx.fillText(displayText, canvas.width / 2, canvas.height - 60);
 }
 
 /**
@@ -415,8 +435,8 @@ function gameLoop(currentTime) {
   drawWords();
   checkCollisions();
 
-  // Anzeige der gesammelten Wörter aktualisieren
-  updateResultDisplay();
+  // Anzeige der gesammelten Wörter am unteren Rand zeichnen
+  drawCollectedWords();
 
   // Glow-Effekt animieren
   glowAngle += 0.05;
@@ -1106,13 +1126,13 @@ function showEndScreenIfDone() {
     // Ergebnistext je nach Erfolg in beiden Minigames
     let message;
     if (miniGameResult1 === true && miniGameResult2 === true) {
-      message = `<h2>Erholsamer Schlaf!</h2><p>Du hast 2 von 2 Träumen erfolgreich gemeistert</p>`;
+      message = `<h2>Erholsamer Schlaf!</h2><p>Du hast 2 von 2 Träumen </p><p class="tight">erfolgreich gemeistert</p>`;
     } else if (miniGameResult1 === false && miniGameResult2 === false) {
       // beide verloren
-      message = `<h2>Was ein Albtraum!</h2><p>Du hast 0 von 2 Träumen erfolgreich gemeistert</p>`;
+      message = `<h2>Was ein Albtraum!</h2><p>Du hast 0 von 2 Träumen </p><p class="tight">erfolgreich gemeistert</p>`;
     } else {
       // eins verloren
-      message = `<h2>Eine Unruhige Nacht…</h2><p>Du hast 1 von 2 Träumen erfolgreich gemeistert</p>`;
+      message = `<h2>Eine Unruhige Nacht…</h2><p>Du hast 1 von 2 Träumen </p><p class="tight">erfolgreich gemeistert</p>`;
     }
 
     endscreenDiv.innerHTML = message + '<br><br><button id="restartButton" onclick="location.reload()" style="font-size:1em;padding:0.4em 1.2em">Nochmal spielen</button>';
