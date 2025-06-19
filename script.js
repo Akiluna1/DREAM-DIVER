@@ -521,7 +521,7 @@ function startDodgeMiniGame() {
         x: canvas.width / 2,
         y: canvas.height - 50,
         size: 25,
-        speed: 10
+        speed: 5
     };
     function keyDown(e){
         if (e.key === "ArrowLeft") leftDown = true;
@@ -610,7 +610,7 @@ function startDodgeMiniGame() {
         }
         // Move & Draw
         for (let obj of fallingObjects) {
-            obj.y += obj.speed;
+            obj.y += obj.speed * 0.4;
             const jitterX = (Math.random() - 0.5) * 4;
             const jitterY = (Math.random() - 0.5) * 1;
             ctx.save();
@@ -656,7 +656,11 @@ function startDodgeMiniGame() {
             } else {
                 miniGameResult2 = true;
                 isSecondMinigame = false;
-                fadeToMiniGame("Puh geschafft, das war gefährlich…", showEndScreenIfDone);
+                fadeToMiniGame("Puh geschafft, das war gefährlich…", () => {
+  fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
+    showEndScreenIfDone();
+  }, '#45B7B7');
+});// fadeToMiniGame("Puh geschafft, das war gefährlich…", showEndScreenIfDone); // ersetzt durch neuen Fade
             }
             container.classList.remove('bg-main','bg-piano','bg-dodge');
             container.classList.add('bg-main');
@@ -681,7 +685,11 @@ function startDodgeMiniGame() {
                 } else {
                     miniGameResult2 = false;
                     isSecondMinigame = false;
-                    fadeToMiniGame("Hätte besser laufen können…", showEndScreenIfDone);
+                   fadeToMiniGame("Hätte besser laufen können…", () => {
+  fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
+    showEndScreenIfDone();
+  }, '#45B7B7');
+});// fadeToMiniGame("Hätte besser laufen können…", showEndScreenIfDone); // ersetzt durch neuen Fade
                 }
             }, 50);
             fadeOutAudio(dodgeGameLoopAudio);
@@ -1007,9 +1015,11 @@ function startGoodDreamMiniGame() {
           isSecondMinigame = true;
           fadeToMiniGame("Dein Schlaf wird schlechter...", startGame, '#45B7B7');
         } else {
-          miniGameResult2 = false;
+         miniGameResult2 = false;
           isSecondMinigame = false;
-          fadeToMiniGame("Dein Schlaf wird schlechter...", showEndScreenIfDone, '#45B7B7');
+          fadeToMiniGame("Dein Schlaf wird schlechter...", () => {
+            fadeToMiniGame("Mal sehen wie dein Traum war...", showEndScreenIfDone,'#000');
+          }, '#45B7B7');
         }
         const gameOverSound = new Audio("GAMEOVER.mp3");
         gameOverSound.play().catch(e => console.log("GAMEOVER error", e));
@@ -1036,7 +1046,9 @@ function startGoodDreamMiniGame() {
         } else {
           miniGameResult2 = true;
           isSecondMinigame = false;
-          fadeToMiniGame("Sehr gut... Deine Seele ist entspannter…", showEndScreenIfDone, '#45B7B7');
+          fadeToMiniGame("Sehr gut... Deine Seele ist entspannt…", () => {
+            fadeToMiniGame("Mal sehen wie dein Traum war...", showEndScreenIfDone, '#000');
+          }, '#45B7B7');
         }
         const gameWinSound = new Audio("GAMEWIN.mp3");
         gameWinSound.play().catch(e => console.log("GAMEWIN error", e));
