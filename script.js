@@ -47,6 +47,7 @@ window.addEventListener("DOMContentLoaded", () => {
     backgroundVideo.play().catch(e => console.warn("Autoplay blockiert:", e));
     // fadeInAudio(startMusic); // Startmusik ausblenden (entfernt)
     fadeOutAudio(endMusic);   // Endmusik ausblenden
+    fadeInAudio(startMusic); // Startmusik einblenden
   }
 });
 
@@ -521,7 +522,7 @@ function startDodgeMiniGame() {
         x: canvas.width / 2,
         y: canvas.height - 50,
         size: 25,
-        speed: 5
+        speed: 3
     };
     function keyDown(e){
         if (e.key === "ArrowLeft") leftDown = true;
@@ -610,7 +611,7 @@ function startDodgeMiniGame() {
         }
         // Move & Draw
         for (let obj of fallingObjects) {
-            obj.y += obj.speed * 0.4;
+            obj.y += obj.speed * 0.3;
             const jitterX = (Math.random() - 0.5) * 4;
             const jitterY = (Math.random() - 0.5) * 1;
             ctx.save();
@@ -636,9 +637,9 @@ function startDodgeMiniGame() {
         fallingObjects = fallingObjects.filter(obj => obj.y < canvas.height + obj.size);
         dodgeScore++;
         ctx.fillStyle = "#fff"; ctx.font = "24px pixelify-sans";
-        ctx.fillText("Punkte: " + dodgeScore, 20, 40);
+        
         ctx.fillStyle = "#fff"; ctx.font = "32px pixelify-sans";
-        ctx.fillText(`Zeit: ${secondsLeft}s`, canvas.width/2 - 60, 40);
+        ctx.fillText(`Zeit: ${secondsLeft}s`, canvas.width/2, 40);
         // Sieg nach Ablauf der Zeit!
         if (timeLeft <= 0) {
             const gameWinSound = new Audio("GAMEWIN.mp3");
@@ -1153,7 +1154,7 @@ function showEndScreenIfDone() {
       message = `<h2>Eine Unruhige Nacht…</h2><p>Du hast 1 von 2 Träumen </p><p class="tight">erfolgreich gemeistert</p>`;
     }
 
-    endscreenDiv.innerHTML = message + '<br><br><button id="restartButton" onclick="location.reload()" style="font-size:1em;padding:0.4em 1.2em">Nochmal spielen</button>';
+    endscreenDiv.innerHTML = message + '<br><br><button id="restartButton" onclick="location.reload()" style="font-size:1em;padding:0.4em 1.2em">Try Again</button>';
     endscreenDiv.style.fontFamily = "'pixelify', sans-serif";
     endscreenDiv.style.color = "#fff";
     endscreenDiv.style.display = "block";
@@ -1161,6 +1162,7 @@ function showEndScreenIfDone() {
     stopAllBackgroundMusic();
     // Play end music with fade (nach Endscreen-Anzeige)
     playSoundWithFade("ENDMUSIC", true);
+    
     canvas.style.display = 'none';
     resultDiv.style.display = 'none';
   }
@@ -1203,6 +1205,11 @@ function fadeToMiniGame_inner(text, callback, color = 'black') {
     gameStartSound.play().catch(e => console.log("GAMESTART fade error:", e));
   }
 
+  // Fade out game container and canvas in sync with the overlay
+  container.style.transition = 'opacity 3s ease';
+  container.style.opacity = '0';
+  canvas.style.transition = 'opacity 3s ease';
+  canvas.style.opacity = '0';
   document.body.appendChild(overlay);
 
   setTimeout(() => {
@@ -1224,6 +1231,9 @@ function fadeToMiniGame_inner(text, callback, color = 'black') {
     }, 2000);
     setTimeout(() => {
       callback();
+      // Restore game container and canvas opacity after transition
+      container.style.opacity = '1';
+      canvas.style.opacity = '1';
       if (callback === startGame) {
         fadeInAudio(wordMusic);
       }
