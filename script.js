@@ -397,16 +397,16 @@ function evaluateResult() {
         });
       }
     } else if (miniGameResult2 === null) {
-      // Nach der zweiten Wortauswahl: anderes Minigame
       isSecondMinigame = true;
-      // Ablauf wie vor der "showMessage"-Einführung: direkt fadeToMiniGame
-      if (miniGameResult1) {
-        fadeToMiniGame("Es wird gefärlich… Vorsicht...", startDodgeMiniGame, '#001024');
+      // Zweite Wortauswahl abgeschlossen: abhängig von erster Auswahl das jeweils andere Minigame starten
+      if (badWords >= 2) {
+        fadeToMiniGame("Es wird gefährlich… Vorsicht...", startDodgeMiniGame, '#001024');
       } else {
         fadeToMiniGame("Die Wellen werden dich beruhigen...", startGoodDreamMiniGame, '#45B7B7');
       }
+      return;
     }
-  }
+    }
 
   // Automatischer Start der zweiten Runde, wenn 6 Wörter insgesamt gesammelt
   if (miniGameResult1 !== null && miniGameResult2 === null && collected.length === 6) {
