@@ -1,5 +1,5 @@
-// === Framerate-unabhängige Zeitsteuerung für Piano-Minigame ===
-let lastTimestamp = 0;
+// === Framerate-unabhängige Zeitsteuerung für das gesamte Spiel ===
+let lastTime = performance.now();
 
 
 /**
@@ -271,13 +271,16 @@ function drawWords() {
 
 
 /**
- * Bewegt die Spielfigur entsprechend gedrückter Tasten
+ * Bewegt die Spielfigur entsprechend gedrückter Tasten (zeitbasiert)
+ * @param {number} deltaTime - Zeit seit letztem Frame in Sekunden
  */
-function updatePlayer() {
-  if (keys["ArrowLeft"] && player.x - player.size > 0) player.x -= player.speed;
-  if (keys["ArrowRight"] && player.x + player.size < canvas.width) player.x += player.speed;
-  if (keys["ArrowUp"] && player.y - player.size > 0) player.y -= player.speed;
-  if (keys["ArrowDown"] && player.y + player.size < canvas.height) player.y += player.speed;
+function updatePlayer(deltaTime) {
+  // Spieler-Geschwindigkeit in Pixel pro Sekunde
+  const playerSpeed = 300;
+  if (keys["ArrowLeft"] && player.x - player.size > 0) player.x -= playerSpeed * deltaTime;
+  if (keys["ArrowRight"] && player.x + player.size < canvas.width) player.x += playerSpeed * deltaTime;
+  if (keys["ArrowUp"] && player.y - player.size > 0) player.y -= playerSpeed * deltaTime;
+  if (keys["ArrowDown"] && player.y + player.size < canvas.height) player.y += playerSpeed * deltaTime;
 }
 
 /**
@@ -398,13 +401,16 @@ function startMiniGame(type) {
 }
 
 /**
- * Hauptspiel-Schleife während der Wortauswahl-Phasen.
+ * Hauptspiel-Schleife während der Wortauswahl-Phasen (zeitbasiert).
  * Zeichnet Spielfigur, Wörter, prüft Kollisionen und aktualisiert Anzeigen.
  * Wird per requestAnimationFrame kontinuierlich aufgerufen.
+ * @param {number} currentTime - Zeitstempel von requestAnimationFrame
  */
-function gameLoop() {
+function gameLoop(currentTime) {
+  const deltaTime = (currentTime - lastTime) / 1000; // Sekunden
+  lastTime = currentTime;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  updatePlayer();
+  updatePlayer(deltaTime);
   drawPlayer();
   drawWords();
   checkCollisions();
@@ -416,7 +422,7 @@ function gameLoop() {
   glowAngle += 0.05;
 
   // Schleife fortsetzen (solange Spiel in dieser Phase)
-  animationFrameId = requestAnimationFrame(gameLoop); 
+  animationFrameId = requestAnimationFrame(gameLoop);
 }
 
 
@@ -788,9 +794,9 @@ function startGoodDreamMiniGame() {
                 particles.splice(i, 1);
             }
         }
-        // Noten bewegen (framerate-unabhängig, angepasst an targetFPS)
+        // Noten bewegen (framerate-unabhängig)
         for (let note of notes) {
-            note.y -= noteSpeed * (deltaTime / (1000 / targetFPS));
+            note.y -= noteSpeed * deltaTime;
         }
     }
 
@@ -807,8 +813,8 @@ function startGoodDreamMiniGame() {
      * Das heißt: Die eigentliche Notenerzeugung ist durch das warmup-Flag und warmupTime verzögert.
      */
     function gameTick(timestamp) {
-        const deltaTime = (timestamp - lastTimestamp) / 1000;
-        lastTimestamp = timestamp;
+        const deltaTime = (timestamp - lastTime) / 1000;
+        lastTime = timestamp;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         // Partikel-Render
         particles.forEach((p) => {
@@ -1041,7 +1047,7 @@ function startGoodDreamMiniGame() {
       }
     }
     resultDiv.style.display = "none";
-    lastTimestamp = performance.now();
+    lastTime = performance.now();
     requestAnimationFrame(gameTick);
 }
 
@@ -1129,8 +1135,8 @@ function fadeToMiniGame(text, callback, color = 'black') {
 // Hilfsfunktion, damit wir fadeToMiniGame rekursiv aufrufen können
 function fadeToMiniGame_inner(text, callback, color = 'black') {
   const overlay = document.createElement('div');
-  overlay.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:${color};display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;transition:opacity 2.5s ease;`;
-  overlay.innerHTML += `<div style="color:white;font-family:'pixelify-sans',sans-serif;font-size:3em;text-align:center;position:relative;z-index:2;opacity:1;transition:opacity 2.5s ease;">${text}</div>`;
+  overlay.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:${color};display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;transition:opacity 3s ease;`;
+  overlay.innerHTML += `<div style="color:white;font-family:'pixelify-sans',sans-serif;font-size:3em;text-align:center;position:relative;z-index:2;opacity:1;transition:opacity 4s ease;">${text}</div>`;
 
   
   // --- Sound für Dodge-Minigame direkt zu Beginn abspielen ---
@@ -1270,3 +1276,4 @@ function stopAllBackgroundMusic() {
 }
 // === Hintergrundvideo-Steuerung ===
 
+            
