@@ -243,7 +243,7 @@ function drawPlayer() {
 
   // Position zur Trailspur hinzufügen
   player.trail.push({ x: player.x, y: player.y });
-  if (player.trail.length > 15) player.trail.shift();  // Maximal 15 Elemente
+  if (player.trail.length > 25) player.trail.shift();  // Maximal 15 Elemente
 }
 
 /**
@@ -276,7 +276,7 @@ function drawWords() {
  */
 function updatePlayer(deltaTime) {
   // Spieler-Geschwindigkeit in Pixel pro Sekunde
-  const playerSpeed = 300;
+  const playerSpeed = 150;
   if (keys["ArrowLeft"] && player.x - player.size > 0) player.x -= playerSpeed * deltaTime;
   if (keys["ArrowRight"] && player.x + player.size < canvas.width) player.x += playerSpeed * deltaTime;
   if (keys["ArrowUp"] && player.y - player.size > 0) player.y -= playerSpeed * deltaTime;
@@ -748,19 +748,15 @@ function startGoodDreamMiniGame() {
     // Timer und Trefferanzeige schon zu Beginn sichtbar machen
     
     const noteLanes = 4;
-    // Ziel-Framerate für Timing-Korrektur
-    const targetFPS = 60;
     // Center lanes in a 60% width area
     const laneAreaWidth = canvas.width * 0.6;
     const laneOffsetX = (canvas.width - laneAreaWidth) / 2;
     const noteWidth = laneAreaWidth / noteLanes;
     const noteHeight = 40;
-    const noteSpeed = 300; // 300 Pixel pro Sekunde
     const targetLineY = 20;
     let notes = [];
     // Partikel für Bubble-Pop
     let particles = [];
-    let spawnDelay = 0;
     let keys = {ArrowLeft:false,ArrowUp:false,ArrowDown:false,ArrowRight:false};
     const noteToKey = ['ArrowLeft','ArrowUp','ArrowDown','ArrowRight'];
     let score = 0, misses = 0, roundOver = false;
@@ -771,7 +767,15 @@ function startGoodDreamMiniGame() {
     let frameCount = 0;
     let feedback = "";
     let feedbackTimer = 0;
+    let lastFrameTime = 0;
     let feedbackColor = "#35ae40";
+    let startTime = null;
+
+    // === Neue, framerate-unabhängige Noten-Logik ===
+    // Timing-basiertes Spawn-System
+    const noteSpawnInterval = 1000; // Alle 1000ms = 1 Sekunde
+    let lastNoteSpawnTime = performance.now();
+    const noteSpeed = 180; // px pro Sekunde
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
@@ -780,24 +784,29 @@ function startGoodDreamMiniGame() {
     function onKeyUp(e)  { if(keys.hasOwnProperty(e.key)) keys[e.key]=false; }
 
     /**
-     * Zeitbasierte Spiellogik für das Piano-Minigame.
-     * @param {number} deltaTime - Zeit seit letztem Frame in Sekunden
+     * Framerate-unabhängiges Noten-Update und -Spawning für das Piano-Spiel.
+     * @param {number} deltaTime - Zeit seit letztem Frame in ms
      */
-    function updateGame(deltaTime) {
-        // Partikel-Update
-        for (let i = particles.length - 1; i >= 0; i--) {
-            const p = particles[i];
-            p.x += p.vx;
-            p.y += p.vy; 
-            p.alpha -= 0.03;
-            if (p.alpha <= 0) {
-                particles.splice(i, 1);
-            }
+    function updateNotes(deltaTime) {
+      const now = performance.now();
+      if (!lastNoteSpawnTime) lastNoteSpawnTime = now;
+
+      if (!warmup && now - lastNoteSpawnTime >= noteSpawnInterval) {
+        const lastNote = notes[notes.length - 1];
+        const newLane = Math.floor(Math.random() * noteLanes);
+        if (!lastNote || lastNote.lane !== newLane || lastNote.y < canvas.height - 100) {
+          notes.push({ lane: newLane, y: canvas.height });
+          lastNoteSpawnTime = now;
         }
-        // Noten bewegen (framerate-unabhängig)
-        for (let note of notes) {
-            note.y -= noteSpeed * deltaTime;
+      }
+
+      for (let i = notes.length - 1; i >= 0; i--) {
+        const note = notes[i];
+        note.y -= noteSpeed * (deltaTime / 1000); // move notes upward per second
+        if (note.y + noteHeight < 0) {
+          notes.splice(i, 1); // remove notes off-screen
         }
+      }
     }
 
     /**
@@ -805,229 +814,234 @@ function startGoodDreamMiniGame() {
      * - Zuerst Warmup-Phase mit Hinweis.
      * - Dann: Noten fallen herab, Spieler muss sie passend zur Linie treffen.
      * - Fehlerlimit oder Zeitablauf beendet die Runde.
-     *
-     * === HIER wird die Notenverzögerung geregelt: ===
-     * Während der Warmup-Phase (if (warmup)) werden KEINE Noten erzeugt, außer ein allererster spawnNote() kurz vor Ende (bei warmupTime === 1).
-     * Erst nach warmup == false werden die Noten regelmäßig mit spawnDelay erzeugt:
-     *   if (secondsLeft > 7 && spawnDelay <= 0) { spawnNote(); spawnDelay = fps; }
-     * Das heißt: Die eigentliche Notenerzeugung ist durch das warmup-Flag und warmupTime verzögert.
+     * - Noten werden jetzt timing-basiert gespawnt (deltaTime, performance.now).
      */
     function gameTick(timestamp) {
-        const deltaTime = (timestamp - lastTime) / 1000;
-        lastTime = timestamp;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Partikel-Render
-        particles.forEach((p) => {
-            if (p.alpha > 0) {
-                ctx.save();
-                ctx.globalAlpha = p.alpha;
-                ctx.fillStyle = "#ffffff";
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            }
-        });
+      const now = performance.now();
+      const deltaTime = lastFrameTime ? now - lastFrameTime : 16.67;
+      lastFrameTime = now;
 
-        // Zeichnet Noten-Spuren und Ziel-Linie
-        for (let i = 0; i < noteLanes; i++) {
-            const key = noteToKey[i];
-            ctx.globalAlpha = keys[key] ? 0.5 : 0.2;
-            ctx.fillStyle = "#40e0d0";
-            ctx.fillRect(laneOffsetX + i * noteWidth, 0, noteWidth - 2, canvas.height);
-            ctx.globalAlpha = 1;
+      lastTime = timestamp;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Partikel-Render und Zeichnen
+      particles.forEach((p, idx) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= 0.03;
+        if (p.alpha > 0) {
+          ctx.save();
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
         }
-        // Semi-transparent target line
-        ctx.globalAlpha = 0.3;
-        ctx.fillStyle = "#abffe9";
-        ctx.fillRect(laneOffsetX, targetLineY - 6, laneAreaWidth, noteHeight + 12);
+      });
+      // Entferne verbrauchte Partikel
+      for (let i = particles.length - 1; i >= 0; i--) {
+        if (particles[i].alpha <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+
+      // Zeichnet Noten-Spuren und Ziel-Linie
+      for (let i = 0; i < noteLanes; i++) {
+        const key = noteToKey[i];
+        ctx.globalAlpha = keys[key] ? 0.5 : 0.2;
+        ctx.fillStyle = "#40e0d0";
+        ctx.fillRect(laneOffsetX + i * noteWidth, 0, noteWidth - 2, canvas.height);
         ctx.globalAlpha = 1;
+      }
+      // Semi-transparent target line
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = "#abffe9";
+      ctx.fillRect(laneOffsetX, targetLineY - 6, laneAreaWidth, noteHeight + 12);
+      ctx.globalAlpha = 1;
 
-        ctx.font = "bold 24px pixelify-sans";
-        for (let i = 0; i < noteLanes; i++) {
-            const key = noteToKey[i];
-            ctx.fillStyle = keys[key] ? "#fff" : "#888";
-            let symbol = "←";
-            if (key == "ArrowUp") symbol = "↑";
-            if (key == "ArrowDown") symbol = "↓";
-            if (key == "ArrowRight") symbol = "→";
-            ctx.fillText(symbol, laneOffsetX + i * noteWidth + noteWidth / 2, targetLineY + noteHeight + 55);
-        }
-        // --- WARMUP-PHASE: Zeigt Hinweis, lässt Spieler die Steuerung ausprobieren ---
-        if (warmup) {
-            ctx.textAlign = "center";
-            const alpha = warmupTime > 60 ? 1 : warmupTime / 60;
-            ctx.globalAlpha = alpha;
-            ctx.font = "bold 32px pixelify-sans";
-            ctx.fillStyle = "#fff";
-            ctx.fillText("WARM UP!", canvas.width / 2, canvas.height / 2 - 40);
-            ctx.font = "24px pixelify-sans";
-            ctx.fillText("Beweg den Joystick in verschiedene Richtungen", canvas.width / 2, canvas.height / 2 + 10);
-            ctx.globalAlpha = 1;
-            warmupTime--;
-            // HIER: Während warmup==true werden KEINE Noten erzeugt, außer:
-            if (warmupTime <= 0) {
-                warmup = false;
-            }
-            if (warmupTime === 1) {
-                spawnNote(); // Starte das Noten-Spawning 1 Sekunde vor Spielstart
-            }
-        }
-        // Zeitberechnung
-        let secondsLeft = Math.ceil(roundTime - (frameCount / fps));
+      ctx.font = "bold 24px pixelify-sans";
+      for (let i = 0; i < noteLanes; i++) {
+        const key = noteToKey[i];
+        ctx.fillStyle = keys[key] ? "#fff" : "#888";
+        let symbol = "←";
+        if (key == "ArrowUp") symbol = "↑";
+        if (key == "ArrowDown") symbol = "↓";
+        if (key == "ArrowRight") symbol = "→";
+        ctx.fillText(symbol, laneOffsetX + i * noteWidth + noteWidth / 2, targetLineY + noteHeight + 55);
+      }
+      // --- WARMUP-PHASE: Zeigt Hinweis, lässt Spieler die Steuerung ausprobieren ---
+      if (warmup) {
+        ctx.textAlign = "center";
+        const alpha = warmupTime > 60 ? 1 : warmupTime / 60;
+        ctx.globalAlpha = alpha;
+        ctx.font = "bold 32px pixelify-sans";
         ctx.fillStyle = "#fff";
-        ctx.font = "35px pixelify-sans";
-        ctx.fillText(secondsLeft + "Sek", canvas.width - 140, 42);
-
-        // Noten bewegen und zeichnen (herabfallende Kreise mit Glow)
-        updateGame(deltaTime);
-        notes.forEach(note => {
-            ctx.save();
-            ctx.shadowColor = "#ffffff";
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = "#ffffff";
-            const x = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
-            const y = note.y + noteHeight / 2;
-            const radius = noteHeight * 0.65;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-        });
-
-        // Prüft, ob Noten getroffen oder verpasst wurden
-        for (let i = notes.length - 1; i >= 0; i--) {
-            let note = notes[i];
-            if (note.y < targetLineY + noteHeight && note.y > targetLineY - 10) {
-                let key = noteToKey[note.lane];
-                if (keys[key]) {
-                    const popX = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
-                    const popY = note.y + noteHeight / 2;
-                    spawnParticles(popX, popY);
-                    notes.splice(i, 1);
-                    score++;
-                    const hitSound = noteCollectSound.cloneNode();
-                    hitSound.play().catch(e => console.log("Note hit sound error:", e));
-                    feedback = "Good!";
-                    feedbackTimer = 32;
-                    feedbackColor = "#ffffff";
-                    continue;
-                }
-            }
-            if (note.y < targetLineY - 16) {
-                const popX = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
-                const popY = note.y + noteHeight / 2;
-                spawnParticles(popX, popY);
-                notes.splice(i, 1);
-                misses++;
-                const missSound = noteMissedSound.cloneNode();
-                missSound.play().catch(e => console.log("Note miss sound error:", e));
-                feedback = "Nicht getroffen!";
-                feedbackTimer = 40;
-                feedbackColor = "#e44";
-            }
+        ctx.fillText("WARM UP!", canvas.width / 2, canvas.height / 2 - 40);
+        ctx.font = "24px pixelify-sans";
+        ctx.fillText("Beweg den Joystick in verschiedene Richtungen", canvas.width / 2, canvas.height / 2 + 10);
+        ctx.globalAlpha = 1;
+        warmupTime--;
+        if (warmupTime <= 0) {
+          warmup = false;
         }
-
-        // Noten werden regelmäßig erzeugt, solange Zeit bleibt, aber NUR wenn warmup==false:
-        if (!warmup) {
-            spawnDelay--;
-            if (secondsLeft > 3 && spawnDelay <= 0) {
-                // Check if last note is too close in same lane
-                const lastNote = notes[notes.length - 1];
-                const newLane = Math.floor(Math.random() * noteLanes);
-                if (
-                  !lastNote ||
-                  lastNote.lane !== newLane ||
-                  lastNote.y < canvas.height - 100
-                ) {
-                  notes.push({ lane: newLane, y: canvas.height });
-                  spawnDelay = fps;
-                }
-            }
+        if (warmupTime === 1) {
+          spawnNote();
+          lastNoteSpawnTime = performance.now();
         }
-        // Feedback (Good!/Nicht getroffen!) anzeigen
-        if (feedback && feedbackTimer > 0) {
-            ctx.font = "bold 32px pixelify-sans";
-            ctx.fillStyle = feedbackColor;
-            ctx.fillText(feedback, canvas.width / 2, 80);
-            feedbackTimer--;
-            if (feedbackTimer === 0) feedback = "";
-        }
+      }
+      // Zeitberechnung mit realem Timer
+      if (!startTime) startTime = Date.now();
+      let elapsedTime = (Date.now() - startTime) / 1000;
+      let secondsLeft = Math.ceil(roundTime - elapsedTime);
+      ctx.fillStyle = "#fff";
+      ctx.font = "35px pixelify-sans";
+      ctx.fillText(secondsLeft + "Sek", canvas.width - 140, 42);
 
-        ctx.font = "22px pixelify-sans";
+      // --- Timing-basiertes Note-Spawning (ersetzt spawnDelay) ---
+      // Vorher: if (secondsLeft > 7 && spawnDelay <= 0) { spawnNote(); spawnDelay = fps; }
+      // Jetzt:
+      // Neue Bedingung: Notes nur spawnen, wenn mehr als 5 Sekunden übrig sind
+      if (!warmup && secondsLeft > 7 && secondsLeft > 5 && now - lastNoteSpawnTime >= noteSpawnInterval) {
+        spawnNote();
+        lastNoteSpawnTime = now;
+      }
+
+      // Noten bewegen und zeichnen (heraufsteigende Kreise mit Glow)
+      updateNotes(deltaTime);
+      notes.forEach(note => {
+        ctx.save();
+        ctx.shadowColor = "#ffffff";
+        ctx.shadowBlur = 15;
         ctx.fillStyle = "#ffffff";
-        ctx.fillText("Fehler: " + misses + " / 5", canvas.width / 9, canvas.height - 44);
-        frameCount++;
-        // --- SPIEL BEENDET: Zu viele Fehler ---
-        if (misses >= 5) {
-            roundOver = true;
-            if (!isSecondMinigame) {
-                miniGameResult1 = false;
-                isSecondMinigame = true;
-                fadeToMiniGame("Dein Schlaf wird schlechter...", startGame, '#45B7B7');
-            } else {
-                miniGameResult2 = false;
-                isSecondMinigame = false;
-                fadeToMiniGame("Dein Schlaf wird schlechter...", showEndScreenIfDone, '#45B7B7');
-            }
-            const gameOverSound = new Audio("GAMEOVER.mp3");
-            gameOverSound.play().catch(e => console.log("GAMEOVER error", e));
-            notes = [];
-            fadeOutAudio(pianoLoop1);
-            fadeOutAudio(pianoLoop2);
-        }
-        // --- SPIEL BEENDET: Zeit abgelaufen (Gewonnen) ---
-        else if (secondsLeft <= 0) {
-            roundOver = true;
-            if (!isSecondMinigame) {
-                miniGameResult1 = true;
-                isSecondMinigame = true;
-                fadeToMiniGame("Sehr gut... Deine Seele ist entspannter…", () => {
-                  // Nach dem Feedback-Fade: Zeige exklusiven Fade für den Übergang zur zweiten Wortwahl
-                  if (miniGameResult1 !== null && miniGameResult2 === null) {
-                    fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {
-                      startGame();
-                    });
-                  } else {
-                    startGame();
-                  }
-                }, '#45B7B7');
-            } else {
-                miniGameResult2 = true;
-                isSecondMinigame = false;
-                fadeToMiniGame("Sehr gut... Deine Seele ist entspannter…", showEndScreenIfDone, '#45B7B7');
-            }
-            const gameWinSound = new Audio("GAMEWIN.mp3");
-            gameWinSound.play().catch(e => console.log("GAMEWIN error", e));
-            notes = [];
-            fadeOutAudio(pianoLoop1);
-            fadeOutAudio(pianoLoop2);
-        }
-
-        // Fortsetzen, solange nicht vorbei
-        if (!roundOver) {
-            requestAnimationFrame(gameTick);
+        const x = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
+        const y = note.y + noteHeight / 2;
+        const radius = noteHeight * 0.65;
+        // Falls note.image existiert und geladen ist, zeichne das Bild, sonst Platzhalter
+        if (note.image && note.image.complete) {
+          ctx.drawImage(note.image, x - note.width / 2, note.y, note.width, note.height);
         } else {
-            setTimeout(() => {
-                window.removeEventListener("keydown", onKeyDown);
-                window.removeEventListener("keyup", onKeyUp);
-            }, 10000);
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fill();
         }
+        ctx.restore();
+      });
+
+      // Prüft, ob Noten getroffen oder verpasst wurden
+      for (let i = notes.length - 1; i >= 0; i--) {
+        let note = notes[i];
+        if (note.y < targetLineY + noteHeight && note.y > targetLineY - 10) {
+          let key = noteToKey[note.lane];
+          if (keys[key]) {
+            const popX = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
+            const popY = note.y + noteHeight / 2;
+            spawnParticles(popX, popY);
+            notes.splice(i, 1);
+            score++;
+            const hitSound = noteCollectSound.cloneNode();
+            hitSound.play().catch(e => console.log("Note hit sound error:", e));
+            feedback = "Good!";
+            feedbackTimer = 32;
+            feedbackColor = "#ffffff";
+            continue;
+          }
+        }
+        if (note.y < targetLineY - 16) {
+          const popX = laneOffsetX + note.lane * noteWidth + noteWidth / 2;
+          const popY = note.y + noteHeight / 2;
+          spawnParticles(popX, popY);
+          notes.splice(i, 1);
+          misses++;
+          const missSound = noteMissedSound.cloneNode();
+          missSound.play().catch(e => console.log("Note miss sound error:", e));
+          feedback = "Nicht getroffen!";
+          feedbackTimer = 40;
+          feedbackColor = "#e44";
+        }
+      }
+
+      // Feedback (Good!/Nicht getroffen!) anzeigen
+      if (feedback && feedbackTimer > 0) {
+        ctx.font = "bold 32px pixelify-sans";
+        ctx.fillStyle = feedbackColor;
+        ctx.fillText(feedback, canvas.width / 2, 80);
+        feedbackTimer--;
+        if (feedbackTimer === 0) feedback = "";
+      }
+
+      ctx.font = "22px pixelify-sans";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText("Fehler: " + misses + " / 5", canvas.width / 9, canvas.height - 44);
+      frameCount++;
+      // --- SPIEL BEENDET: Zu viele Fehler ---
+      if (misses >= 5) {
+        roundOver = true;
+        if (!isSecondMinigame) {
+          miniGameResult1 = false;
+          isSecondMinigame = true;
+          fadeToMiniGame("Dein Schlaf wird schlechter...", startGame, '#45B7B7');
+        } else {
+          miniGameResult2 = false;
+          isSecondMinigame = false;
+          fadeToMiniGame("Dein Schlaf wird schlechter...", showEndScreenIfDone, '#45B7B7');
+        }
+        const gameOverSound = new Audio("GAMEOVER.mp3");
+        gameOverSound.play().catch(e => console.log("GAMEOVER error", e));
+        notes = [];
+        fadeOutAudio(pianoLoop1);
+        fadeOutAudio(pianoLoop2);
+      }
+      // --- SPIEL BEENDET: Zeit abgelaufen (Gewonnen) ---
+      else if (secondsLeft <= 0) {
+        roundOver = true;
+        if (!isSecondMinigame) {
+          miniGameResult1 = true;
+          isSecondMinigame = true;
+          fadeToMiniGame("Sehr gut... Deine Seele ist entspannter…", () => {
+            // Nach dem Feedback-Fade: Zeige exklusiven Fade für den Übergang zur zweiten Wortwahl
+            if (miniGameResult1 !== null && miniGameResult2 === null) {
+              fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {
+                startGame();
+              });
+            } else {
+              startGame();
+            }
+          }, '#45B7B7');
+        } else {
+          miniGameResult2 = true;
+          isSecondMinigame = false;
+          fadeToMiniGame("Sehr gut... Deine Seele ist entspannter…", showEndScreenIfDone, '#45B7B7');
+        }
+        const gameWinSound = new Audio("GAMEWIN.mp3");
+        gameWinSound.play().catch(e => console.log("GAMEWIN error", e));
+        notes = [];
+        fadeOutAudio(pianoLoop1);
+        fadeOutAudio(pianoLoop2);
+      }
+
+      // Fortsetzen, solange nicht vorbei
+      if (!roundOver) {
+        requestAnimationFrame(gameTick);
+      } else {
+        setTimeout(() => {
+          window.removeEventListener("keydown", onKeyDown);
+          window.removeEventListener("keyup", onKeyUp);
+        }, 10000);
+      }
     }
     /**
-     * Erzeugt eine neue Note in zufälliger Spur
+     * Erzeugt eine neue Note in einer zufälligen Spur, startet sie am unteren Rand
      */
     function spawnNote() {
-        // 🎵 Hier werden die Noten für das Piano-Minigame erzeugt
-        const lastNote = notes[notes.length - 1];
-        const newLane = Math.floor(Math.random() * noteLanes);
-        if (
-          !lastNote ||
-          lastNote.lane !== newLane ||
-          lastNote.y < canvas.height - 100
-        ) {
-          notes.push({ lane: newLane, y: canvas.height });
-        }
+      let lane;
+      let attempts = 0;
+      do {
+        lane = Math.floor(Math.random() * noteLanes);
+        const lastNote = notes.filter(n => n.lane === lane).slice(-1)[0];
+        if (!lastNote || lastNote.y < canvas.height - 150) break;
+        attempts++;
+      } while (attempts < 10);
+      notes.push({ lane: lane, y: canvas.height });
     }
     /**
      * Erzeugt ein paar kleine Partikel an (x,y) für Pop-Effekt
