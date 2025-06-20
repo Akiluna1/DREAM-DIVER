@@ -601,6 +601,8 @@ function startDodgeMiniGame() {
         size: 25,
         speed: 5
     };
+    const gameCountdownSound = new Audio("GAMECOUNTDOWN.mp3");
+    let countdownPlayed = false;
     function keyDown(e){
         if (e.key === "ArrowLeft") leftDown = true;
         if (e.key === "ArrowRight") rightDown = true;
@@ -620,12 +622,10 @@ function startDodgeMiniGame() {
     if (!dodgeStartSound) {
         dodgeStartSound = new Audio("DODGESTART.mp3");
     }
-    const gameCountdownSound = new Audio("GAMECOUNTDOWN.mp3");
     dodgeGameLoopAudio = new Audio("DODGEGAME.mp3");
     dodgeGameLoopAudio.loop = true;
     // ensure maximum volume for dodge game music
     dodgeGameLoopAudio.volume = 1;
-    gameCountdownSound.play().catch(e => console.log("GAMECOUNTDOWN error", e));
     playLoop(dodgeGameLoopAudio);
     // reinforce full volume after starting loop
     dodgeGameLoopAudio.volume = 1;
@@ -661,6 +661,11 @@ function startDodgeMiniGame() {
         let GAME_DURATION = 30 * 1000;
         let timeLeft = Math.max(0, GAME_DURATION - elapsed);
         let secondsLeft = Math.ceil(timeLeft / 1000);
+        if (!countdownPlayed && secondsLeft <= 3) {
+            countdownPlayed = true;
+            gameCountdownSound.currentTime = 0;
+            gameCountdownSound.play().catch(e => console.log("GAMECOUNTDOWN error", e));
+        }
         // Spieler bewegen
         if (leftDown) dodgePlayer.x -= dodgePlayer.speed;
         if (rightDown) dodgePlayer.x += dodgePlayer.speed;
