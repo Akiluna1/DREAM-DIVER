@@ -116,6 +116,9 @@ let glowAngle = 0;
 // Wörter aus der ersten Auswahl speichern (für zweite Auswahl)
 let phase1Collected = [];
 
+// Control whether collected-word placeholders should be shown
+let hideCollectedPlaceholders = false;
+
 // Spielerfigur (weißer Kreis mit Glow)
 let player = {
   x: canvas.width / 2,
@@ -144,8 +147,10 @@ endMusic.loop = true;
 const noteCollectSound = new Audio("NOTECOLLECT.mp3");
 const noteMissedSound = new Audio("NOTEMISSED.mp3");
 const pianoStartSound = new Audio("PIANOSTART.mp3");
-const pianoLoop1 = new Audio("PIANOGAME.mp3");
+pianoLoop1 = new Audio("PIANOGAME.mp3");
 const pianoLoop2 = new Audio("PIANOGAME1.mp3");
+// Web Audio context for gain control
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 pianoLoop1.loop = true;
 pianoLoop2.loop = true;
 
@@ -194,6 +199,13 @@ function startGame() {
   container.classList.remove('bg-main','bg-piano','bg-dodge');
   container.classList.add('bg-main');
   canvas.style.display = 'block';
+  // Restore opacity for canvas and UI elements in case they were faded out
+  canvas.style.transition = '';
+  canvas.style.opacity = '1';
+  resultDiv.style.transition = '';
+  resultDiv.style.opacity = '1';
+  instructionDiv.style.transition = '';
+  instructionDiv.style.opacity = '1';
   // Anzeige zurücksetzen
   resultDiv.innerHTML = '';
   resultDiv.style.display = 'block';
@@ -222,8 +234,24 @@ function startGame() {
     const width = ctx.measureText(word.text).width * (fontSize / 35); // scale factor
     return {
       ...word,
-      x: Math.random() * (canvas.width - 160) + 80,
-      y: Math.random() * (canvas.height - 100) + 50,
+      x: (() => {
+        const cx = canvas.width / 2;
+        const m = 50;
+        let val;
+        do {
+          val = Math.random() * (canvas.width - 160) + 80;
+        } while (Math.abs(val - cx) < m);
+        return val;
+      })(),
+      y: (() => {
+        const cy = canvas.height / 2;
+        const m = 50;
+        let val;
+        do {
+          val = Math.random() * (canvas.height - 200) + 100;
+        } while (Math.abs(val - cy) < m);
+        return val;
+      })(),
       alpha: 1,
       fontSize: fontSize,
       width: width,
@@ -348,6 +376,13 @@ function checkCollisions() {
       word.alpha = 0.99;
       player.scaleTarget = 1.5;
       setTimeout(() => { player.scaleTarget = 1; }, 100);
+      // Aktualisiere die Instruktion basierend auf verbleibenden Wörtern
+      if (collected.length < 3) {
+        const rem = 3 - collected.length;
+        instructionDiv.innerHTML = rem === 1
+          ? "Noch 1 Wort wählen…"
+          : `Noch ${rem} Wörter wählen…`;
+      }
 
       if (collected.length === 3) {
         if (!gameFinished) evaluateResult();
@@ -394,6 +429,13 @@ function evaluateResult() {
         // Zu viele schlechte Wörter: Dodge-Minispiel (Albtraum)
         miniGameResult1 = false;
         phase1Collected = collected.map(w => w.text);
+        // fade out word game UI
+        canvas.style.transition = 'opacity 1s ease';
+        resultDiv.style.transition = 'opacity 1s ease';
+        instructionDiv.style.transition = 'opacity 1s ease';
+        canvas.style.opacity = '0';
+        resultDiv.style.opacity = '0';
+        instructionDiv.style.opacity = '0';
         // Ablauf wie vor der "showMessage"-Einführung: direkt fadeToMiniGame mit Texten
         fadeToMiniGame("Gebe dein bestes um nicht aufzuwachen...", () => {
             startMiniGame("dodge");
@@ -402,6 +444,13 @@ function evaluateResult() {
         // Wenig "bad": Piano-Minispiel (guter Traum)
         miniGameResult1 = true;
         phase1Collected = collected.map(w => w.text);
+        // fade out word game UI
+        canvas.style.transition = 'opacity 1s ease';
+        resultDiv.style.transition = 'opacity 1s ease';
+        instructionDiv.style.transition = 'opacity 1s ease';
+        canvas.style.opacity = '0';
+        resultDiv.style.opacity = '0';
+        instructionDiv.style.opacity = '0';
         // Ablauf wie vor der "showMessage"-Einführung: direkt fadeToMiniGame mit Texten
         fadeToMiniGame("Gebe dein bestes um nicht aufzuwachen...", () => {
           startMiniGame("catch");
@@ -452,7 +501,9 @@ function gameLoop(currentTime) {
   checkCollisions();
 
   // Anzeige der gesammelten Wörter am unteren Rand zeichnen
-  drawCollectedWords();
+  if (!hideCollectedPlaceholders) {
+    drawCollectedWords();
+  }
 
   // Glow-Effekt animieren
   glowAngle += 0.05;
@@ -559,8 +610,21 @@ function startDodgeMiniGame() {
     const gameCountdownSound = new Audio("GAMECOUNTDOWN.mp3");
     dodgeGameLoopAudio = new Audio("DODGEGAME.mp3");
     dodgeGameLoopAudio.loop = true;
+    // ensure maximum volume for dodge game music
+    dodgeGameLoopAudio.volume = 1;
     gameCountdownSound.play().catch(e => console.log("GAMECOUNTDOWN error", e));
     playLoop(dodgeGameLoopAudio);
+    // reinforce full volume after starting loop
+    dodgeGameLoopAudio.volume = 1;
+    // Amplify dodge game music via Web Audio API
+    try {
+      const dodgeSource = audioCtx.createMediaElementSource(dodgeGameLoopAudio);
+      const dodgeGain = audioCtx.createGain();
+      dodgeGain.gain.value = 3; // amplify by factor of 2
+      dodgeSource.connect(dodgeGain).connect(audioCtx.destination);
+    } catch (e) {
+      console.warn("WebAudio boost failed:", e);
+    }
 
     container.classList.remove('bg-main','bg-piano','bg-dodge');
     container.classList.add('bg-dodge');
@@ -950,8 +1014,11 @@ function startGoodDreamMiniGame() {
         }
       }
       // Zeitberechnung mit realem Timer
-      if (!startTime) startTime = Date.now();
-      let elapsedTime = (Date.now() - startTime) / 1000;
+      // Only start the timer after warmup ends
+      if (!warmup && !startTime) {
+        startTime = Date.now();
+      }
+      let elapsedTime = (startTime ? (Date.now() - startTime) : 0) / 1000;
       let secondsLeft = Math.ceil(roundTime - elapsedTime);
       ctx.fillStyle = "#fff";
       ctx.font = "35px pixelify-sans";
@@ -1233,6 +1300,21 @@ function fadeToMiniGame(text, callback, color = 'black') {
 
 // Hilfsfunktion, damit wir fadeToMiniGame rekursiv aufrufen können
 function fadeToMiniGame_inner(text, callback, color = 'black') {
+  // Hide word sprites and collected placeholders during transition
+  hideCollectedPlaceholders = true;
+  words = [];
+  collected = [];
+  // Fade out player canvas and UI placeholders
+  canvas.style.transition = 'opacity 1s ease';
+  canvas.style.opacity = '0';
+  resultDiv.style.transition = 'opacity 1s ease';
+  resultDiv.style.opacity = '0';
+  instructionDiv.style.transition = 'opacity 1s ease';
+  instructionDiv.style.opacity = '0';
+  // Fade out the game container background
+  container.style.transition = 'opacity 1s ease';
+  container.style.opacity = '0';
+  // Fade out the game canvas (player, trail, etc.) during transition
   const overlay = document.createElement('div');
   overlay.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:${color};display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;transition:opacity 3s ease;`;
   overlay.innerHTML += `<div style="color:white;font-family:'pixelify-sans',sans-serif;font-size:3em;text-align:center;position:relative;z-index:2;opacity:1;transition:opacity 4s ease;">${text}</div>`;
@@ -1270,6 +1352,7 @@ function fadeToMiniGame_inner(text, callback, color = 'black') {
       textElement.style.opacity = '0';
     }, 2000);
     setTimeout(() => {
+      hideCollectedPlaceholders = false;
       callback();
       // Restore game container and canvas opacity after transition
       container.style.opacity = '1';
