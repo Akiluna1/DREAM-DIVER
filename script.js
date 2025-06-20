@@ -526,14 +526,10 @@ function onKeyUp(e) { keys[e.key] = false; }
 // === STARTBUTTON-Logik ===
 // Beim Klick auf "Start" wird das Spiel (Wortauswahl) gestartet, Musik eingeblendet, Intro-Overlay gezeigt
 startButton.addEventListener("click", () => {
-  startMusic.volume = 1;
-  startMusic.currentTime = 0;
-  startMusic.play().catch(e => console.log("StartMusic Play Error:", e));
+
 
   // fadeInAudio(startMusic); // Entfernt, da Musik jetzt direkt gestartet wird
   fadeOutAudio(startMusic);
-  fadeOutAudio(endMusic);
-  fadeOutAudio(wordMusic);
   gameTitle.style.display = 'none';
   startButton.style.display = 'none';
 
@@ -1086,9 +1082,9 @@ function startGoodDreamMiniGame() {
         if (feedbackTimer === 0) feedback = "";
       }
 
-      ctx.font = "22px pixelify-sans";
+      ctx.font = "35px pixelify-sans";
       ctx.fillStyle = "#ffffff";
-      ctx.fillText("Fehler: " + misses + " / 5", canvas.width / 9, canvas.height - 44);
+      ctx.fillText("Fehler: " + misses + " / 5", canvas.width / 10, 42);
       frameCount++;
       // --- SPIEL BEENDET: Zu viele Fehler ---
       if (misses >= 5) {
