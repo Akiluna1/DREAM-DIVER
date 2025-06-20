@@ -519,7 +519,7 @@ function startDodgeMiniGame() {
     fadeOutAudio(wordMusic);
 
     // === WARMUP-ANZEIGE VOR DEM MINIGAME ===
-    let warmupTime = 90;
+    let warmupTime = 600; // erhöhtes Warmup auf ca. 3 Sekunden
     let warmup = true;
     // Wir brauchen Zugriff auf dodgeGameLoop und spawnFallingObject innerhalb von dodgeWarmupTick
     let dodgeGameLoopAudio = null;
@@ -601,13 +601,16 @@ function startDodgeMiniGame() {
         ctx.arc(dodgePlayer.x, dodgePlayer.y, dodgePlayer.size, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-        // FallingObjects
-        let difficultyLevel = 1 + dodgeScore / 600;
+        // FallingObjects (dynamic spawn count over time)
+        const elapsedSeconds = (timestamp - startTime) / 1000;
+        let difficultyLevel = 1 + dodgeScore / 750;
         let spawnDelay = Math.max(250, 700 - dodgeScore);
-        let objectsToSpawn = 1;
+        // Start with 1 object, increase by 1 every 10s, cap at 3
+        let objectsToSpawn = 1 + Math.floor(elapsedSeconds / 10);
+        objectsToSpawn = Math.min(objectsToSpawn, 3);
         if (!lastObjectTime || timestamp - lastObjectTime > spawnDelay) {
             lastObjectTime = timestamp;
-            for(let i=0; i<objectsToSpawn; i++) {
+            for (let i = 0; i < objectsToSpawn; i++) {
                 fallingObjects.push({
                     x: Math.random() * (canvas.width - 40) + 20,
                     y: -30,
@@ -659,6 +662,8 @@ function startDodgeMiniGame() {
             if (!isSecondMinigame) {
                 miniGameResult1 = true;
                 fadeToMiniGame("Puh geschafft, das war gefährlich…", () => {
+                    hideDodgeBackgroundVideo();
+                    showBackgroundVideo();
                     container.classList.remove('bg-main','bg-piano','bg-dodge');
                     container.classList.add('bg-main');
                     fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {  
@@ -671,6 +676,8 @@ function startDodgeMiniGame() {
                 miniGameResult2 = true;
                 isSecondMinigame = false;
                 fadeToMiniGame("Puh geschafft, das war gefährlich…", () => {
+                    hideDodgeBackgroundVideo();
+                    showBackgroundVideo();
                     container.classList.remove('bg-main','bg-piano','bg-dodge');
                     container.classList.add('bg-main');
                     fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
@@ -692,20 +699,23 @@ function startDodgeMiniGame() {
                 gameOverSound.play().catch(e => console.log("GAMEOVER error", e));
                 if (!isSecondMinigame) {
                     miniGameResult1 = false;
-                  
-                  fadeToMiniGame("Hätte besser laufen können…",() => {
-                  fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {  
-                  startGame(); 
-                    });
+                    fadeToMiniGame("Hätte besser laufen können…", () => {
+                        hideDodgeBackgroundVideo();
+                        showBackgroundVideo();
+                        fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {  
+                            startGame(); 
+                        });
                     });
                 } else {
                     miniGameResult2 = false;
                     isSecondMinigame = false;
-                   fadeToMiniGame("Hätte besser laufen können…", () => {
-  fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
-    showEndScreenIfDone();
-  }, '#000');
-});// fadeToMiniGame("Hätte besser laufen können…", showEndScreenIfDone); // ersetzt durch neuen Fade
+                    fadeToMiniGame("Hätte besser laufen können…", () => {
+                        hideDodgeBackgroundVideo();
+                        showBackgroundVideo();
+                        fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
+                            showEndScreenIfDone();
+                        }, '#000');
+                    });// fadeToMiniGame("Hätte besser laufen können…", showEndScreenIfDone); // ersetzt durch neuen Fade
                 }
             }, 50);
             fadeOutAudio(dodgeGameLoopAudio);
@@ -811,7 +821,7 @@ function startGoodDreamMiniGame() {
     const noteToKey = ['ArrowLeft','ArrowUp','ArrowDown','ArrowRight'];
     let score = 0, misses = 0, roundOver = false;
     let warmup = true;
-    let warmupTime = 180; // ca. 5 Sekunden Warmup
+    let warmupTime = 1000; // ca. 5 Sekunden Warmup (erhöht)
     let roundTime = 30; // 30 Sekunden Spielzeit
     const fps = 30; // frames per second
     let frameCount = 0;
