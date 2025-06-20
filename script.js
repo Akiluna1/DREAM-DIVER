@@ -908,22 +908,10 @@ function startGoodDreamMiniGame() {
     function onKeyUp(e)  { if(keys.hasOwnProperty(e.key)) keys[e.key]=false; }
 
     /**
-     * Framerate-unabhängiges Noten-Update und -Spawning für das Piano-Spiel.
+     * Framerate-unabhängiges Noten-Update für das Piano-Spiel.
      * @param {number} deltaTime - Zeit seit letztem Frame in ms
      */
     function updateNotes(deltaTime) {
-      const now = performance.now();
-      if (!lastNoteSpawnTime) lastNoteSpawnTime = now;
-
-      if (!warmup && now - lastNoteSpawnTime >= noteSpawnInterval) {
-        const lastNote = notes[notes.length - 1];
-        const newLane = Math.floor(Math.random() * noteLanes);
-        if (!lastNote || lastNote.lane !== newLane || lastNote.y < canvas.height - 100) {
-          notes.push({ lane: newLane, y: canvas.height });
-          lastNoteSpawnTime = now;
-        }
-      }
-
       for (let i = notes.length - 1; i >= 0; i--) {
         const note = notes[i];
         note.y -= noteSpeed * (deltaTime / 1000); // move notes upward per second
@@ -1024,11 +1012,8 @@ function startGoodDreamMiniGame() {
       ctx.font = "35px pixelify-sans";
       ctx.fillText(secondsLeft + "Sek", canvas.width - 140, 42);
 
-      // --- Timing-basiertes Note-Spawning (ersetzt spawnDelay) ---
-      // Vorher: if (secondsLeft > 7 && spawnDelay <= 0) { spawnNote(); spawnDelay = fps; }
-      // Jetzt:
-      // Neue Bedingung: Notes nur spawnen, wenn mehr als 5 Sekunden übrig sind
-      if (!warmup && secondsLeft > 7 && secondsLeft > 5 && now - lastNoteSpawnTime >= noteSpawnInterval) {
+      // --- Timing-basiertes Note-Spawning: nur solange der Timer läuft
+      if (!warmup && secondsLeft > 5 && now - lastNoteSpawnTime >= noteSpawnInterval) {
         spawnNote();
         lastNoteSpawnTime = now;
       }
