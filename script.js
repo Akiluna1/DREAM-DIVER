@@ -226,37 +226,42 @@ function startGame() {
   const available = miniGameResult1 === null
     ? wordPool
     : wordPool.filter(w => !phase1Collected.includes(w.text));
-  // Prepare to measure word width with the correct font
-  words = available.map(word => {
-    // fontSize between 28 and 42 (randomized, adjust as needed)
+  // Place each word in a non-overlapping position with padding
+  words = [];
+  available.forEach(word => {
+    // Random font size between 30 and 50
     const fontSize = Math.floor(Math.random() * 20) + 30;
     ctx.font = `${fontSize}px pixelify-sans`;
-    const width = ctx.measureText(word.text).width * (fontSize / 35); // scale factor
-    return {
+    const textWidth = ctx.measureText(word.text).width;
+    const width = textWidth * (fontSize / 35);
+    const height = fontSize;
+    let x, y;
+    let attempts = 0;
+    const padding = 20;
+    // Helper to test overlap against already placed words
+    function isOverlapping() {
+      return words.some(w => {
+        const dx = Math.abs(w.x - x);
+        const dy = Math.abs(w.y - y);
+        return dx < (w.width / 2 + width / 2 + padding) &&
+               dy < (w.height / 2 + height / 2 + padding);
+      });
+    }
+    // Generate position until no overlap or max attempts reached
+    do {
+      x = Math.random() * (canvas.width - 160) + 80;
+      y = Math.random() * (canvas.height - 200) + 100;
+      attempts++;
+    } while (isOverlapping() && attempts < 100);
+    words.push({
       ...word,
-      x: (() => {
-        const cx = canvas.width / 2;
-        const m = 50;
-        let val;
-        do {
-          val = Math.random() * (canvas.width - 160) + 80;
-        } while (Math.abs(val - cx) < m);
-        return val;
-      })(),
-      y: (() => {
-        const cy = canvas.height / 2;
-        const m = 50;
-        let val;
-        do {
-          val = Math.random() * (canvas.height - 200) + 100;
-        } while (Math.abs(val - cy) < m);
-        return val;
-      })(),
+      x,
+      y,
       alpha: 1,
-      fontSize: fontSize,
-      width: width,
-      height: fontSize
-    };
+      fontSize,
+      width,
+      height
+    });
   });
 
   // Listener für Steuerung hinzufügen (falls notwendig)
