@@ -762,7 +762,7 @@ function startDodgeMiniGame() {
                     showBackgroundVideo();
                     container.classList.remove('bg-main','bg-piano','bg-dodge');
                     container.classList.add('bg-main');
-                    fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
+                    fadeToMiniGame("Mal sehen wie dein Schlaf war...", () => {
                         container.classList.remove('bg-main','bg-piano','bg-dodge');
                         container.classList.add('bg-main');
                         showEndScreenIfDone();
@@ -794,7 +794,7 @@ function startDodgeMiniGame() {
                     fadeToMiniGame("Hätte besser laufen können…", () => {
                         hideDodgeBackgroundVideo();
                         showBackgroundVideo();
-                        fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
+                        fadeToMiniGame("Mal sehen wie dein Schlaf war...", () => {
                             showEndScreenIfDone();
                         }, '#000');
                     });// fadeToMiniGame("Hätte besser laufen können…", showEndScreenIfDone); // ersetzt durch neuen Fade
@@ -1126,7 +1126,7 @@ function startGoodDreamMiniGame() {
           isSecondMinigame = false;
           fadeToMiniGame("Dein Schlaf wird schlechter...", () => {
             notes = [];
-            fadeToMiniGame("Mal sehen wie dein Traum war...", showEndScreenIfDone,'#000');
+            fadeToMiniGame("Mal sehen wie dein Schlaf war...", showEndScreenIfDone,'#000');
           }, '#45B7B7');
         }
         const gameOverSound = new Audio("GAMEOVER.mp3");
@@ -1163,7 +1163,7 @@ function startGoodDreamMiniGame() {
             notes = [];
             container.classList.remove('bg-main','bg-piano','bg-dodge');
             container.classList.add('bg-main');
-            fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
+            fadeToMiniGame("Mal sehen wie dein Schlaf war...", () => {
               container.classList.remove('bg-main','bg-piano','bg-dodge');
               container.classList.add('bg-main');
               showEndScreenIfDone();
