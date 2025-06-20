@@ -16,6 +16,16 @@ let lastTime = performance.now();
  */
 const backgroundVideo = document.getElementById("backgroundVideo");
 const pianoBackgroundVideo = document.getElementById("pianoBackgroundVideo");
+const dodgeBackgroundVideo = document.getElementById('dodgeBackgroundVideo');
+
+function showDodgeBackgroundVideo() {
+  dodgeBackgroundVideo.style.display = 'block';
+  dodgeBackgroundVideo.play().catch(e => console.warn("Dodge video play error", e));
+}
+function hideDodgeBackgroundVideo() {
+  dodgeBackgroundVideo.pause();
+  dodgeBackgroundVideo.style.display = 'none';
+}
 // === Piano-Hintergrundvideo Steuerung ===
 function showPianoBackgroundVideo() {
   if (pianoBackgroundVideo) {
@@ -501,8 +511,11 @@ window.addEventListener("keydown", (e) => {
  */
 let dodgeStartSound = null; // global, damit in fadeToMiniGame zugänglich
 function startDodgeMiniGame() {
-    // Hintergrundvideo ausblenden für Minigame
+    // Video-Hintergründe umschalten für Dodge-Minispiel
     hideBackgroundVideo();
+    hidePianoBackgroundVideo();
+    showDodgeBackgroundVideo();
+    // Hintergrundvideo ausblenden für Minigame
     fadeOutAudio(wordMusic);
 
     // === WARMUP-ANZEIGE VOR DEM MINIGAME ===
@@ -522,7 +535,7 @@ function startDodgeMiniGame() {
         x: canvas.width / 2,
         y: canvas.height - 50,
         size: 25,
-        speed: 3
+        speed: 5
     };
     function keyDown(e){
         if (e.key === "ArrowLeft") leftDown = true;
@@ -589,11 +602,9 @@ function startDodgeMiniGame() {
         ctx.fill();
         ctx.restore();
         // FallingObjects
-        let difficultyLevel = 1 + dodgeScore / 500;
+        let difficultyLevel = 1 + dodgeScore / 600;
         let spawnDelay = Math.max(250, 700 - dodgeScore);
         let objectsToSpawn = 1;
-        if (dodgeScore > 600) objectsToSpawn = 2;
-        if (dodgeScore > 1500) objectsToSpawn = 3;
         if (!lastObjectTime || timestamp - lastObjectTime > spawnDelay) {
             lastObjectTime = timestamp;
             for(let i=0; i<objectsToSpawn; i++) {
@@ -611,7 +622,7 @@ function startDodgeMiniGame() {
         }
         // Move & Draw
         for (let obj of fallingObjects) {
-            obj.y += obj.speed * 0.3;
+            obj.y += obj.speed * 0.2;
             const jitterX = (Math.random() - 0.5) * 4;
             const jitterY = (Math.random() - 0.5) * 1;
             ctx.save();
@@ -648,23 +659,27 @@ function startDodgeMiniGame() {
             if (!isSecondMinigame) {
                 miniGameResult1 = true;
                 fadeToMiniGame("Puh geschafft, das war gefährlich…", () => {
-                fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {  
-                startGame(); // Startet die zweite Runde mit Phase 1 Wörtern
+                    container.classList.remove('bg-main','bg-piano','bg-dodge');
+                    container.classList.add('bg-main');
+                    fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {  
+                        container.classList.remove('bg-main','bg-piano','bg-dodge');
+                        container.classList.add('bg-main');
+                        startGame(); // Startet die zweite Runde mit Phase 1 Wörtern
                     });
                 });
-
-                
             } else {
                 miniGameResult2 = true;
                 isSecondMinigame = false;
                 fadeToMiniGame("Puh geschafft, das war gefährlich…", () => {
-  fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
-    showEndScreenIfDone();
-  }, '#45B7B7');
-});// fadeToMiniGame("Puh geschafft, das war gefährlich…", showEndScreenIfDone); // ersetzt durch neuen Fade
+                    container.classList.remove('bg-main','bg-piano','bg-dodge');
+                    container.classList.add('bg-main');
+                    fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
+                        container.classList.remove('bg-main','bg-piano','bg-dodge');
+                        container.classList.add('bg-main');
+                        showEndScreenIfDone();
+                    }, '#000');
+                });// fadeToMiniGame("Puh geschafft, das war gefährlich…", showEndScreenIfDone); // ersetzt durch neuen Fade
             }
-            container.classList.remove('bg-main','bg-piano','bg-dodge');
-            container.classList.add('bg-main');
             return;
         }
         if (!dodgeGameOver) {
@@ -689,7 +704,7 @@ function startDodgeMiniGame() {
                    fadeToMiniGame("Hätte besser laufen können…", () => {
   fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
     showEndScreenIfDone();
-  }, '#45B7B7');
+  }, '#000');
 });// fadeToMiniGame("Hätte besser laufen können…", showEndScreenIfDone); // ersetzt durch neuen Fade
                 }
             }, 50);
@@ -1014,17 +1029,23 @@ function startGoodDreamMiniGame() {
         if (!isSecondMinigame) {
           miniGameResult1 = false;
           isSecondMinigame = true;
-          fadeToMiniGame("Dein Schlaf wird schlechter...", startGame, '#45B7B7');
+          fadeToMiniGame("Dein Schlaf wird schlechter...", () => {
+            notes = [];
+            fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {
+              startGame();
+            });
+          }, '#45B7B7');
         } else {
-         miniGameResult2 = false;
+          miniGameResult2 = false;
           isSecondMinigame = false;
           fadeToMiniGame("Dein Schlaf wird schlechter...", () => {
+            notes = [];
             fadeToMiniGame("Mal sehen wie dein Traum war...", showEndScreenIfDone,'#000');
           }, '#45B7B7');
         }
         const gameOverSound = new Audio("GAMEOVER.mp3");
         gameOverSound.play().catch(e => console.log("GAMEOVER error", e));
-        notes = [];
+        // notes = []; // moved to fadeToMiniGame callback
         fadeOutAudio(pianoLoop1);
         fadeOutAudio(pianoLoop2);
       }
@@ -1035,9 +1056,14 @@ function startGoodDreamMiniGame() {
           miniGameResult1 = true;
           isSecondMinigame = true;
           fadeToMiniGame("Sehr gut... Deine Seele ist entspannter…", () => {
+            notes = [];
+            container.classList.remove('bg-main','bg-piano','bg-dodge');
+            container.classList.add('bg-main');
             // Nach dem Feedback-Fade: Zeige exklusiven Fade für den Übergang zur zweiten Wortwahl
             if (miniGameResult1 !== null && miniGameResult2 === null) {
               fadeToMiniGame("Wähle drei Worte, die dich leiten _<br><br>Vielleicht wird dein Traum ein anderer...", () => {
+                container.classList.remove('bg-main','bg-piano','bg-dodge');
+                container.classList.add('bg-main');
                 startGame();
               });
             } else {
@@ -1048,12 +1074,19 @@ function startGoodDreamMiniGame() {
           miniGameResult2 = true;
           isSecondMinigame = false;
           fadeToMiniGame("Sehr gut... Deine Seele ist entspannt…", () => {
-            fadeToMiniGame("Mal sehen wie dein Traum war...", showEndScreenIfDone, '#000');
+            notes = [];
+            container.classList.remove('bg-main','bg-piano','bg-dodge');
+            container.classList.add('bg-main');
+            fadeToMiniGame("Mal sehen wie dein Traum war...", () => {
+              container.classList.remove('bg-main','bg-piano','bg-dodge');
+              container.classList.add('bg-main');
+              showEndScreenIfDone();
+            }, '#000');
           }, '#45B7B7');
         }
         const gameWinSound = new Audio("GAMEWIN.mp3");
         gameWinSound.play().catch(e => console.log("GAMEWIN error", e));
-        notes = [];
+        // notes = []; // moved to fadeToMiniGame callback
         fadeOutAudio(pianoLoop1);
         fadeOutAudio(pianoLoop2);
       }
@@ -1131,6 +1164,8 @@ function hideGameStats() {
 function showEndScreenIfDone() {
   // Piano-Video zuverlässig beenden, sobald Endscreen angezeigt wird
   hidePianoBackgroundVideo();
+  // Dodge-Video ausblenden vor Rückkehr zum Haupt-Hintergrund
+  hideDodgeBackgroundVideo();
   container.classList.remove('bg-main','bg-piano','bg-dodge');
   container.classList.add('bg-main');
   // Hintergrundvideo wieder anzeigen auf Endscreen
@@ -1205,11 +1240,6 @@ function fadeToMiniGame_inner(text, callback, color = 'black') {
     gameStartSound.play().catch(e => console.log("GAMESTART fade error:", e));
   }
 
-  // Fade out game container and canvas in sync with the overlay
-  container.style.transition = 'opacity 3s ease';
-  container.style.opacity = '0';
-  canvas.style.transition = 'opacity 3s ease';
-  canvas.style.opacity = '0';
   document.body.appendChild(overlay);
 
   setTimeout(() => {
