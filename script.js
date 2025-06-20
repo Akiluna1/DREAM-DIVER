@@ -539,13 +539,25 @@ startButton.addEventListener("click", () => {
   }
 
   // Intro-Overlay mit Anweisung
-  fadeToMiniGame("Tauche ein in deinen Traum.<br><br>Wähle drei Worte, die dich leiten _", () => {
-    canvas.style.display = 'block';
-    resultDiv.style.display = 'block';
-    container.classList.remove('bg-main','bg-piano','bg-dodge');
-    container.classList.add('bg-main');
-    startGame();
-  }, '#000000');
+  fadeToMiniGame(
+  `<p>Tauche ein in eine Traumwelt!<br><br>Wenn du es schaffst nicht aufzuwachen eröffnen</p>
+   <p class="tight">sich dir vielleicht ja neue Welten!</p>`,
+ 
+    () => {
+      fadeToMiniGame(
+        "Wähle drei Worte, die dich leiten _",
+        () => {
+          canvas.style.display = 'block';
+          resultDiv.style.display = 'block';
+          container.classList.remove('bg-main','bg-piano','bg-dodge');
+          container.classList.add('bg-main');
+          startGame();
+        },
+        '#000000'
+      );
+    },
+    '#000000'
+  );
 });
 
 // Spielstart auch mit Leertaste möglich, falls Startbutton sichtbar
@@ -571,7 +583,7 @@ function startDodgeMiniGame() {
     fadeOutAudio(wordMusic);
 
     // === WARMUP-ANZEIGE VOR DEM MINIGAME ===
-    let warmupTime = 600; // erhöhtes Warmup auf ca. 3 Sekunden
+    let warmupTime = 500; // erhöhtes Warmup auf ca. 3 Sekunden
     let warmup = true;
     // Wir brauchen Zugriff auf dodgeGameLoop und spawnFallingObject innerhalb von dodgeWarmupTick
     let dodgeGameLoopAudio = null;
@@ -726,7 +738,7 @@ function startDodgeMiniGame() {
             fadeOutAudio(dodgeGameLoopAudio);
             if (!isSecondMinigame) {
                 miniGameResult1 = true;
-                fadeToMiniGame("Puh geschafft, das war gefährlich…", () => {
+                fadeToMiniGame("Puh geschafft! Das war gefährlich…", () => {
                     hideDodgeBackgroundVideo();
                     showBackgroundVideo();
                     container.classList.remove('bg-main','bg-piano','bg-dodge');
@@ -740,7 +752,7 @@ function startDodgeMiniGame() {
             } else {
                 miniGameResult2 = true;
                 isSecondMinigame = false;
-                fadeToMiniGame("Puh geschafft, das war gefährlich…", () => {
+                fadeToMiniGame("Puh geschafft! Das war gefährlich…", () => {
                     hideDodgeBackgroundVideo();
                     showBackgroundVideo();
                     container.classList.remove('bg-main','bg-piano','bg-dodge');
@@ -819,6 +831,12 @@ function startDodgeMiniGame() {
         ctx.arc(dodgePlayer.x, dodgePlayer.y, dodgePlayer.size, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+
+        // Static timer display during warmup
+        ctx.font = "32px pixelify-sans";
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.fillText("Zeit: 30s", canvas.width / 2, 40);
 
         if (warmupTime === 60) {
           // Beispiel: Beginne mit dem Spiel oder Spawn
@@ -1225,42 +1243,58 @@ function hideGameStats() {
  * Zeigt je nach Ergebnis einen anderen Text und einen "Nochmal spielen"-Button.
  */
 function showEndScreenIfDone() {
-  // Piano-Video zuverlässig beenden, sobald Endscreen angezeigt wird
+  // Stop piano and dodge background videos
   hidePianoBackgroundVideo();
-  // Dodge-Video ausblenden vor Rückkehr zum Haupt-Hintergrund
   hideDodgeBackgroundVideo();
-  container.classList.remove('bg-main','bg-piano','bg-dodge');
-  container.classList.add('bg-main');
-  // Hintergrundvideo wieder anzeigen auf Endscreen
+  // Show main background video
   showBackgroundVideo();
-  // Endscreen anzeigen, wenn beide Minigame-Resultate gesetzt sind (egal ob true oder false)
+
+  // Only proceed if both minigames have results
   if (miniGameResult1 !== null && miniGameResult2 !== null) {
     instructionDiv.style.display = 'none';
-    // Musik wechseln
+    // Fade out word music and reset end music
     fadeOutAudio(wordMusic);
     endMusic.pause();
     endMusic.currentTime = 0;
-    // Ergebnistext je nach Erfolg in beiden Minigames
+
+    // Count wins (true = 1, false = 0)
+    const wins = (miniGameResult1 ? 1 : 0) + (miniGameResult2 ? 1 : 0);
     let message;
-    if (miniGameResult1 === true && miniGameResult2 === true) {
-      message = `<h2>Erholsamer Schlaf!</h2><p>Du hast 2 von 2 Träumen </p><p class="tight">erfolgreich gemeistert</p>`;
-    } else if (miniGameResult1 === false && miniGameResult2 === false) {
-      // beide verloren
-      message = `<h2>Was ein Albtraum!</h2><p>Du hast 0 von 2 Träumen </p><p class="tight">erfolgreich gemeistert</p>`;
+    let unlockMsg;
+
+    if (wins === 2) {
+      message = `<h2>Erholsamer Schlaf!</h2>
+                 <p>Du hast 2 von 2 Träumen</p><p class="tight">erfolgreich gemeistert</p>`;
+      unlockMsg = `<p class="unlock">+ Neuer Traum freigeschaltet! ٩(ˊᗜˋ )و</p>`;
+    } else if (wins === 1) {
+      message = `<h2>Eine Unruhige Nacht…</h2>
+                 <p>Du hast 1 von 2 Träumen </p><p class="tight">erfolgreich gemeistert</p><p class="tight">(ᗒᗣᗕ)՞</p>`;
+      unlockMsg = `<p class="unlock">-Schaffe 2 Träume, um einen neuen Traum freizuschalten</p>`;
     } else {
-      // eins verloren
-      message = `<h2>Eine Unruhige Nacht…</h2><p>Du hast 1 von 2 Träumen </p><p class="tight">erfolgreich gemeistert</p>`;
+      message = `<h2>Was ein Albtraum!</h2>
+                 <p>Du hast 0 von 2 Träumen </p><p class="tight">erfolgreich gemeistert</p><p class="tight">o(╥﹏╥)</p>`;
+      unlockMsg = `<p class="unlock">-Schaffe 2 Träume, um einen neuen Traum freizuschalten</p>`;
     }
 
-    endscreenDiv.innerHTML = message + '<br><br><button id="restartButton" onclick="location.reload()" style="font-size:1em;padding:0.4em 1.2em">Try Again</button>';
+    // Build endscreen HTML
+    endscreenDiv.innerHTML = `
+      ${message}
+      ${unlockMsg}
+      <br><br>
+      <button id="restartButton" onclick="location.reload()"
+              style="font-size:1em;padding:0.4em 1.2em">
+        Try Again
+      </button>
+    `;
     endscreenDiv.style.fontFamily = "'pixelify', sans-serif";
     endscreenDiv.style.color = "#fff";
-    endscreenDiv.style.display = "block";
-    // Stop all other background music before hiding canvas
+    endscreenDiv.style.display = 'block';
+
+    // Stop all other music and play end music
     stopAllBackgroundMusic();
-    // Play end music with fade (nach Endscreen-Anzeige)
     playSoundWithFade("ENDMUSIC", true);
-    
+
+    // Hide canvas and result display
     canvas.style.display = 'none';
     resultDiv.style.display = 'none';
   }
@@ -1286,6 +1320,11 @@ function fadeToMiniGame(text, callback, color = 'black') {
 
 // Hilfsfunktion, damit wir fadeToMiniGame rekursiv aufrufen können
 function fadeToMiniGame_inner(text, callback, color = 'black') {
+  // detect intro fade to extend its display time
+  const isIntroFade = text.includes("Tauche ein in eine Traumwelt");
+  // timing overrides for intro
+  const textFadeOutDelay = isIntroFade ? 5000 : 2000;
+  const nextCallbackDelay = isIntroFade ? 8000 : 4000;
   // Hide word sprites and collected placeholders during transition
   hideCollectedPlaceholders = true;
   words = [];
@@ -1302,8 +1341,8 @@ function fadeToMiniGame_inner(text, callback, color = 'black') {
   container.style.opacity = '0';
   // Fade out the game canvas (player, trail, etc.) during transition
   const overlay = document.createElement('div');
-  overlay.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:${color};display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;transition:opacity 3s ease;`;
-  overlay.innerHTML += `<div style="color:white;font-family:'pixelify-sans',sans-serif;font-size:3em;text-align:center;position:relative;z-index:2;opacity:1;transition:opacity 4s ease;">${text}</div>`;
+  overlay.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:${color};display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;transition:opacity ${isIntroFade ? 5 : 3}s ease;`;
+  overlay.innerHTML += `<div style="color:white;font-family:'pixelify-sans',sans-serif;font-size:3em;line-height:1em;text-align:center;position:relative;z-index:2;opacity:1;transition:opacity ${isIntroFade ? 6 : 4}s ease;">${text}</div>`;
 
   
   // --- Sound für Dodge-Minigame direkt zu Beginn abspielen ---
@@ -1336,7 +1375,7 @@ function fadeToMiniGame_inner(text, callback, color = 'black') {
     }, 500);
     setTimeout(() => {
       textElement.style.opacity = '0';
-    }, 2000);
+    }, textFadeOutDelay);
     setTimeout(() => {
       hideCollectedPlaceholders = false;
       callback();
@@ -1350,7 +1389,7 @@ function fadeToMiniGame_inner(text, callback, color = 'black') {
       setTimeout(() => {
         document.body.removeChild(overlay);
       }, 2500);
-    }, 4000);
+    }, nextCallbackDelay);
   }, 50);
 }
 
