@@ -567,6 +567,13 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+// Restart complete game when 'L' key is pressed
+window.addEventListener("keydown", function(e) {
+  if (e.key.toLowerCase() === 'l') {
+    location.reload();
+  }
+});
+
 
 // --- BAD DREAM MINIGAME ---
 /**
